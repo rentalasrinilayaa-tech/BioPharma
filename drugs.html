@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drug Explorer — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>Drug Explorer</h1>
+      <p>Type a drug name to see its most-reported adverse events, where in the world
+         it's being tested, and its US approval status.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="search-panel">
+      <input id="drugInput" type="text" placeholder="e.g. semaglutide, pembrolizumab, metformin…" aria-label="Drug name" />
+      <button class="primary" id="drugBtn">Explore drug</button>
+    </div>
+    <p class="examples">
+      Try: <a data-q="semaglutide">semaglutide</a> ·
+      <a data-q="pembrolizumab">pembrolizumab</a> ·
+      <a data-q="metformin">metformin</a> ·
+      <a data-q="lecanemab">lecanemab</a>
+    </p>
+
+    <!-- Honest framing matters: adverse-event reports are not proven side effects. -->
+    <div class="notice">
+      <strong>How to read this data:</strong> "adverse events" are reports sent to the FDA by
+      patients and clinicians after taking a drug. A report does <em>not</em> prove the drug
+      caused the event, and reporting is voluntary, so counts are signals — not statistics.
+      Always rely on the official label and your doctor for medical decisions.
+    </div>
+
+    <div id="message" class="message">Search a drug to begin.</div>
+
+    <div id="results" hidden>
+      <div class="stats">
+        <div class="stat"><div class="num" id="statReports">–</div><div class="lbl">Adverse-event reports (US FDA)</div></div>
+        <div class="stat"><div class="num" id="statTrials">–</div><div class="lbl">Trials found</div></div>
+        <div class="stat"><div class="num" id="statCountries">–</div><div class="lbl">Countries testing it</div></div>
+        <div class="stat"><div class="num" id="statFDA">–</div><div class="lbl">US FDA record</div></div>
+      </div>
+
+      <div class="grid cols-2" style="margin-top:14px">
+        <div class="panel">
+          <h2 class="section-title" style="margin-top:0">Most-reported adverse events</h2>
+          <div id="reactions"></div>
+        </div>
+        <div>
+          <div class="panel" style="margin-bottom:14px">
+            <h2 class="section-title" style="margin-top:0">Countries where it's in trials</h2>
+            <div class="chips" id="countries"></div>
+          </div>
+          <div class="panel">
+            <h2 class="section-title" style="margin-top:0">US states with active trial sites</h2>
+            <div class="chips" id="states"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">Data: openFDA (FAERS adverse events, Drugs@FDA) and ClinicalTrials.gov.
+    General information only — not medical advice.</div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const input = document.getElementById("drugInput");
+    const msg = document.getElementById("message");
+    const results = document.getElementById("results");
+
+    document.getElementById("drugBtn").addEventListener("click", explore);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") explore(); });
+    document.querySelectorAll(".examples a").forEach((a) =>
+      a.addEventListener("click", () => { input.value = a.dataset.q; explore(); })
+    );
+
+    async function explore() {
+      const drug = input.value.trim();
+      if (!drug) { show("Type a drug name first."); return; }
+      results.hidden = true;
+      show('<div class="spinner"></div>Gathering data from FDA and ClinicalTrials.gov…', true);
+
+      // Run all three lookups at the same time. allSettled = "wait for
+      // all, but don't fail everything if one fails" — resilient design.
+      const [events, trials, fda] = await Promise.allSettled([
+        fetchAdverseEvents(drug),
+        fetchTrials(drug),
+        fetchFDAStatus(drug),
+      ]);
+
+      const ev = events.status === "fulfilled" ? events.value : null;
+      const tr = trials.status === "fulfilled" ? trials.value : null;
+      const fd = fda.status === "fulfilled" ? fda.value : null;
+
+      if (!ev && !tr) {
+        show("Nothing found for “" + drug + "”. Tip: generic names (semaglutide) usually match better than brand names (Ozempic).");
+        return;
+      }
+      renderAll(ev, tr, fd);
+    }
+
+    // ---- 1. Adverse events: openFDA counts reactions across all reports ----
+    async function fetchAdverseEvents(drug) {
+      const q = encodeURIComponent('"' + drug + '"');
+      const url = `https://api.fda.gov/drug/event.json?search=patient.drug.medicinalproduct:${q}+patient.drug.openfda.generic_name:${q}&count=patient.reaction.reactionmeddrapt.exact`;
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const d = await r.json();
+      const reactions = (d.results || []).slice(0, 10);            // top 10
+      const totalReports = (d.results || []).reduce((s, x) => s + x.count, 0);
+      return reactions.length ? { reactions, totalReports } : null;
+    }
+
+    // ---- 2. Trials + locations from ClinicalTrials.gov ----
+    async function fetchTrials(drug) {
+      // query.intr = search by intervention (the drug being tested)
+      const url = "https://clinicaltrials.gov/api/v2/studies?" + new URLSearchParams({
+        "query.intr": drug,
+        pageSize: "75",
+      });
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const d = await r.json();
+      const studies = d.studies || [];
+      if (!studies.length) return null;
+
+      const countries = {};
+      const states = {};
+      for (const s of studies) {
+        const locs = s.protocolSection?.contactsLocationsModule?.locations || [];
+        const seenCountry = new Set();   // count each country once per trial
+        const seenState = new Set();
+        for (const L of locs) {
+          if (L.country && !seenCountry.has(L.country)) {
+            seenCountry.add(L.country);
+            countries[L.country] = (countries[L.country] || 0) + 1;
+          }
+          if (L.country === "United States" && L.state && !seenState.has(L.state)) {
+            seenState.add(L.state);
+            states[L.state] = (states[L.state] || 0) + 1;
+          }
+        }
+      }
+      return { total: studies.length, countries, states };
+    }
+
+    // ---- 3. US approval status from Drugs@FDA ----
+    async function fetchFDAStatus(drug) {
+      const q = encodeURIComponent('"' + drug + '"');
+      const url = `https://api.fda.gov/drug/drugsfda.json?search=openfda.generic_name:${q}+openfda.brand_name:${q}&limit=1`;
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const d = await r.json();
+      const res = d.results?.[0];
+      if (!res) return null;
+      const product = res.products?.[0];
+      return {
+        status: product?.marketing_status || "On record",
+        brand: product?.brand_name || "",
+        sponsor: res.sponsor_name || "",
+      };
+    }
+
+    // ---- Drawing everything ----
+    function renderAll(ev, tr, fd) {
+      // Stats
+      document.getElementById("statReports").textContent = ev ? ev.totalReports.toLocaleString() : "0";
+      document.getElementById("statTrials").textContent = tr ? tr.total + (tr.total === 75 ? "+" : "") : "0";
+      document.getElementById("statCountries").textContent = tr ? Object.keys(tr.countries).length : "0";
+      document.getElementById("statFDA").textContent = fd ? prettify(fd.status) : "None found";
+
+      // Reaction bars, scaled to the most common one
+      const rx = document.getElementById("reactions");
+      if (ev) {
+        const max = ev.reactions[0].count;
+        rx.innerHTML = ev.reactions.map((r) => `
+          <div class="bar-row">
+            <span>${escapeHTML(prettify(r.term))}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, (r.count / max) * 100)}%"></div></div>
+            <span class="n">${r.count.toLocaleString()}</span>
+          </div>`).join("");
+      } else {
+        rx.innerHTML = '<p class="message" style="padding:10px">No US adverse-event reports found for this name.</p>';
+      }
+
+      // Country & state chips, sorted by trial count
+      fillChips("countries", tr ? tr.countries : {}, "No trial locations found.");
+      fillChips("states", tr ? tr.states : {}, "No US trial sites found.");
+
+      msg.hidden = true;
+      results.hidden = false;
+    }
+
+    function fillChips(id, counts, emptyText) {
+      const el = document.getElementById(id);
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      el.innerHTML = entries.length
+        ? entries.map(([name, n]) => `<span class="chip">${escapeHTML(name)} <b>×${n}</b></span>`).join("")
+        : `<p class="message" style="padding:6px">${emptyText}</p>`;
+    }
+
+    function prettify(s) {
+      s = String(s).toLowerCase();
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    function show(html, isHTML) {
+      msg.hidden = false;
+      if (isHTML) msg.innerHTML = html; else msg.textContent = html;
+    }
+  </script>
+</body>
+</html>

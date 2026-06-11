@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learn the Basics — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>How to read drug-development data</h1>
+      <p>Five minutes of background that makes every page on this site — and every
+         pharma headline you read — much easier to understand.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="panel learn-block">
+      <h3>The four phases of a clinical trial</h3>
+      <p style="margin-bottom:12px">A new drug must climb a ladder of human studies before approval.
+         Each step asks a bigger, more expensive question — and most drugs fall off along the way.
+         Roughly one in ten drugs that enter Phase 1 eventually reaches approval.</p>
+      <p style="margin-bottom:6px"><span class="phase-tag" style="background:var(--p1)">Phase 1</span>
+        <strong>Is it safe?</strong> Small groups (20–100 people, often healthy volunteers) test
+        dosing and watch for harmful effects.</p>
+      <p style="margin-bottom:6px"><span class="phase-tag" style="background:var(--p2)">Phase 2</span>
+        <strong>Does it work?</strong> Hundreds of patients with the disease. First real evidence
+        of effectiveness — and where most drugs fail.</p>
+      <p style="margin-bottom:6px"><span class="phase-tag" style="background:var(--p3)">Phase 3</span>
+        <strong>Is it better?</strong> Hundreds to thousands of patients, usually compared against
+        the current standard treatment or a placebo. Success here is the basis for approval.</p>
+      <p><span class="phase-tag" style="background:var(--p4)">Phase 4</span>
+        <strong>What happens at scale?</strong> Studies after approval, monitoring safety in the
+        real world across many more patients and years.</p>
+    </div>
+
+    <div class="panel learn-block">
+      <h3>What's an NCT number?</h3>
+      <p>Every registered trial gets a permanent ID like <span style="font-family:'IBM Plex Mono',monospace">NCT04368728</span> —
+         "NCT" for National Clinical Trial plus eight digits. It's the trial's fingerprint: paste it
+         into ClinicalTrials.gov and you'll find the official record, including who can join,
+         where the sites are, and results when published. Every card on our Pipeline Tracker links
+         to its NCT record.</p>
+    </div>
+
+    <div class="panel learn-block">
+      <h3>Adverse events ≠ side effects</h3>
+      <p>Our Drug Explorer shows <em>adverse-event reports</em> from the FDA's FAERS system —
+         reports filed by patients, pharmacists and doctors after someone taking a drug experienced
+         something bad. Crucially, a report does not prove the drug caused the event: people taking
+         heart medication also have heart problems, with or without the drug. High report counts
+         can also simply mean a drug is very widely used. Treat the data as a map of what's being
+         reported, not a verdict — the drug's official label lists its confirmed side effects.</p>
+    </div>
+
+    <div class="panel learn-block">
+      <h3>Why "approved in the US" isn't "approved everywhere"</h3>
+      <p>Each region has its own regulator: the FDA in the United States, the EMA in the European
+         Union, the MHRA in the UK, the PMDA in Japan, the CDSCO in India, and so on. A drug can be
+         approved in one country years before another, or never. Our approvals feed covers the US
+         FDA, whose data is the most open; trial-location data on the Drug Explorer shows where a
+         drug is being <em>tested</em> worldwide.</p>
+    </div>
+
+    <div class="panel learn-block">
+      <h3>Want to find a trial you could join?</h3>
+      <p>Use the Pipeline Tracker, set status to "Recruiting now", and search your condition. Each
+         card links to the official record, which lists eligibility criteria and site contacts.
+         Always discuss trial participation with your own doctor first.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">Educational content reviewed against ClinicalTrials.gov and FDA public
+    documentation. General information only — not medical advice.</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

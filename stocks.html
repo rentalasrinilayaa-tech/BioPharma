@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Industry Stocks — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>Top pharma &amp; biotech stocks</h1>
+      <p>Ten of the world's largest drugmakers, with live prices and today's move.
+         US-listed tickers (ADRs for European companies) so every quote comes from one source.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Live prices need a free API key from finnhub.io.
+         We never fake numbers: without a key you see company info only. -->
+    <div class="panel">
+      <strong>Live prices setup (one time):</strong>
+      <span style="color:var(--muted)">create a free account at finnhub.io, copy your API key, paste it below.
+      The key is saved only in your own browser.</span>
+      <div class="key-row">
+        <input id="apiKey" type="password" placeholder="Paste your Finnhub API key…" aria-label="Finnhub API key" />
+        <button class="primary" id="saveKey">Save &amp; load prices</button>
+        <button id="clearKey" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted)">Clear key</button>
+      </div>
+    </div>
+
+    <div id="message" class="message" hidden></div>
+    <h2 class="section-title">The big ten</h2>
+    <div class="grid cols-2" id="stockGrid"></div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Quotes: Finnhub (15-min delayed on the free tier). Company list is curated by
+      approximate market value and editable in this page's code. Not investment advice.
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    /* ----------------------------------------------------------
+       The curated list. To change it, just edit this array —
+       no other code changes needed. ADR = a US-listed share of
+       a foreign company (how you buy Novo Nordisk on US markets).
+       ---------------------------------------------------------- */
+    const COMPANIES = [
+      { sym: "LLY",   name: "Eli Lilly & Co.",        hq: "🇺🇸 United States", blurb: "Diabetes & obesity blockbusters (Mounjaro, Zepbound) plus Alzheimer's research." },
+      { sym: "NVO",   name: "Novo Nordisk (ADR)",     hq: "🇩🇰 Denmark",       blurb: "Global leader in diabetes & weight-loss therapies (Ozempic, Wegovy)." },
+      { sym: "JNJ",   name: "Johnson & Johnson",      hq: "🇺🇸 United States", blurb: "Diversified healthcare giant: oncology, immunology and medtech." },
+      { sym: "ABBV",  name: "AbbVie",                 hq: "🇺🇸 United States", blurb: "Immunology powerhouse (Humira heritage; Skyrizi, Rinvoq) and aesthetics." },
+      { sym: "RHHBY", name: "Roche Holding (ADR)",    hq: "🇨🇭 Switzerland",   blurb: "Oncology leader and the world's largest diagnostics business." },
+      { sym: "AZN",   name: "AstraZeneca (ADR)",      hq: "🇬🇧 United Kingdom",blurb: "Oncology, rare disease and respiratory; major emerging-markets presence." },
+      { sym: "NVS",   name: "Novartis (ADR)",         hq: "🇨🇭 Switzerland",   blurb: "Innovative medicines across cardiology, oncology and gene therapy." },
+      { sym: "MRK",   name: "Merck & Co.",            hq: "🇺🇸 United States", blurb: "Home of Keytruda, the world's top-selling cancer immunotherapy." },
+      { sym: "PFE",   name: "Pfizer",                 hq: "🇺🇸 United States", blurb: "Vaccines, oncology and internal medicine at global scale." },
+      { sym: "AMGN",  name: "Amgen",                  hq: "🇺🇸 United States", blurb: "Biotech pioneer in bone health, cardiovascular and rare disease." },
+    ];
+
+    const grid = document.getElementById("stockGrid");
+    const msg  = document.getElementById("message");
+
+    function getKey()  { try { return localStorage.getItem("bp-finnhub") || ""; } catch (e) { return ""; } }
+    function setKey(k) { try { localStorage.setItem("bp-finnhub", k); } catch (e) {} }
+
+    // Draw the cards immediately (info only), then fill prices if we have a key.
+    function drawCards(quotes) {
+      grid.innerHTML = COMPANIES.map((c) => {
+        const q = quotes && quotes[c.sym];
+        let priceHTML = '<span style="color:var(--muted);font-size:13px">add key for live price</span>';
+        let chgHTML = "";
+        if (q && q.c) {
+          const up = q.dp >= 0;
+          priceHTML = `<span class="price">$${q.c.toFixed(2)}</span>`;
+          chgHTML = `<span class="chg ${up ? "up" : "down"}">${up ? "▲" : "▼"} ${q.d >= 0 ? "+" : ""}${q.d.toFixed(2)} (${q.dp.toFixed(2)}%) today</span>`;
+        }
+        return `
+          <div class="stock">
+            <div class="row1"><span class="ticker">${c.sym}</span>${priceHTML}</div>
+            <div class="name">${c.name}</div>
+            <div class="hq">${c.hq}</div>
+            ${chgHTML ? `<div style="margin-top:6px">${chgHTML}</div>` : ""}
+            <div class="blurb">${c.blurb}</div>
+          </div>`;
+      }).join("");
+    }
+
+    async function loadQuotes() {
+      const key = getKey();
+      if (!key) { drawCards(null); return; }
+      msg.hidden = false;
+      msg.innerHTML = '<div class="spinner"></div>Loading live quotes…';
+      try {
+        // Fetch all ten quotes in parallel. Promise.all waits for every one.
+        const results = await Promise.all(COMPANIES.map((c) =>
+          fetch(`https://finnhub.io/api/v1/quote?symbol=${c.sym}&token=${encodeURIComponent(key)}`)
+            .then((r) => r.json())
+            .then((q) => [c.sym, q])
+            .catch(() => [c.sym, null])
+        ));
+        const quotes = Object.fromEntries(results);
+        // If every quote came back empty, the key is probably wrong.
+        const anyData = Object.values(quotes).some((q) => q && q.c);
+        if (!anyData) throw new Error("No data returned — check that your API key is correct.");
+        msg.hidden = true;
+        drawCards(quotes);
+      } catch (err) {
+        msg.textContent = "Couldn't load quotes: " + err.message;
+        drawCards(null);
+      }
+    }
+
+    document.getElementById("saveKey").addEventListener("click", () => {
+      const k = document.getElementById("apiKey").value.trim();
+      if (!k) { alert("Paste your Finnhub key first."); return; }
+      setKey(k);
+      loadQuotes();
+    });
+    document.getElementById("clearKey").addEventListener("click", () => {
+      setKey("");
+      document.getElementById("apiKey").value = "";
+      drawCards(null);
+    });
+
+    loadQuotes(); // run on page load (uses saved key if present)
+  </script>
+</body>
+</html>

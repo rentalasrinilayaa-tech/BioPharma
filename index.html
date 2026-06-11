@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BioPharma Updates — Trials, Stocks & Drug Intelligence</title>
+  <meta name="description" content="Free dashboards for clinical trial pipelines, pharma stocks, FDA approvals and drug safety data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>The biotech &amp; pharma world, made readable.</h1>
+      <p>Live clinical-trial pipelines, industry stock performance, recent FDA approvals
+         and drug safety signals — all from open public data, organized for humans.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="num" id="statStudies">…</div><div class="lbl">Studies on ClinicalTrials.gov</div></div>
+      <div class="stat"><div class="num">5</div><div class="lbl">Live dashboards</div></div>
+      <div class="stat"><div class="num">$0</div><div class="lbl">Cost to you</div></div>
+    </div>
+
+    <h2 class="section-title">Explore</h2>
+    <div class="grid cols-3">
+      <a class="feature" href="pipeline.html">
+        <div class="kicker">Clinical trials</div>
+        <h3>Pipeline Tracker</h3>
+        <p>Search any disease or company and watch its trials flow through Phase 1 → 2 → 3 → approval.</p>
+      </a>
+      <a class="feature" href="stocks.html">
+        <div class="kicker">Markets</div>
+        <h3>Industry Stocks</h3>
+        <p>The world's ten biggest pharma &amp; biotech names with live prices and daily moves.</p>
+      </a>
+      <a class="feature" href="drugs.html">
+        <div class="kicker">Drug safety &amp; reach</div>
+        <h3>Drug Explorer</h3>
+        <p>Reported adverse events for any drug, plus the countries and US states where it's being tested.</p>
+      </a>
+      <a class="feature" href="approvals.html">
+        <div class="kicker">Regulatory</div>
+        <h3>Recent FDA Approvals</h3>
+        <p>A rolling feed of the newest drug approvals straight from FDA records.</p>
+      </a>
+      <a class="feature" href="learn.html">
+        <div class="kicker">Education</div>
+        <h3>Learn the Basics</h3>
+        <p>What trial phases mean, how to read an NCT number, and what adverse-event data really tells you.</p>
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Data sources: ClinicalTrials.gov, openFDA, Finnhub. This site is for general
+      information only — it is not medical or investment advice.
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    // A small "wow" touch: fetch the live count of all registered studies.
+    (async () => {
+      try {
+        const r = await fetch("https://clinicaltrials.gov/api/v2/stats/size");
+        const d = await r.json();
+        const n = d.totalStudies;
+        if (n) document.getElementById("statStudies").textContent =
+          (n / 1000).toFixed(0) + "k+";
+      } catch (e) {
+        document.getElementById("statStudies").textContent = "500k+";
+      }
+    })();
+  </script>
+</body>
+</html>

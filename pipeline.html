@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipeline Tracker — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>Pharma Pipeline Tracker</h1>
+      <p>Search any disease or drug company and watch its clinical trials flow through
+         the pipeline — from first human tests to approval. Live data from ClinicalTrials.gov.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="search-panel">
+      <select id="searchType" aria-label="Search by">
+        <option value="cond">Disease / condition</option>
+        <option value="spons">Company / sponsor</option>
+      </select>
+      <input id="searchInput" type="text" placeholder="e.g. lung cancer, alzheimer, Pfizer…" aria-label="Search term" />
+      <select id="statusFilter" aria-label="Trial status">
+        <option value="RECRUITING">Recruiting now</option>
+        <option value="RECRUITING,ACTIVE_NOT_RECRUITING,ENROLLING_BY_INVITATION">All active</option>
+        <option value="">Any status</option>
+      </select>
+      <button class="primary" id="searchBtn">Search trials</button>
+    </div>
+    <p class="examples">
+      Try: <a data-q="breast cancer" data-t="cond">breast cancer</a> ·
+      <a data-q="alzheimer disease" data-t="cond">alzheimer</a> ·
+      <a data-q="Moderna" data-t="spons">Moderna</a> ·
+      <a data-q="Vertex Pharmaceuticals" data-t="spons">Vertex</a>
+    </p>
+
+    <div class="stats" id="stats" hidden>
+      <div class="stat"><div class="num" id="statTotal">–</div><div class="lbl">Trials shown</div></div>
+      <div class="stat"><div class="num" id="statRecruiting">–</div><div class="lbl">Recruiting</div></div>
+      <div class="stat"><div class="num" id="statSponsor">–</div><div class="lbl">Most active sponsor</div></div>
+    </div>
+
+    <div id="message" class="message">Search a condition or company above to load its pipeline.</div>
+
+    <div class="pipeline" id="pipeline" hidden>
+      <div class="col" data-phase="1">
+        <div class="capsule"><span class="half-color">Phase 1</span><span class="half-count" id="count1">0</span></div>
+        <div class="cards" id="col1"></div>
+      </div>
+      <div class="col" data-phase="2">
+        <div class="capsule"><span class="half-color">Phase 2</span><span class="half-count" id="count2">0</span></div>
+        <div class="cards" id="col2"></div>
+      </div>
+      <div class="col" data-phase="3">
+        <div class="capsule"><span class="half-color">Phase 3</span><span class="half-count" id="count3">0</span></div>
+        <div class="cards" id="col3"></div>
+      </div>
+      <div class="col" data-phase="4">
+        <div class="capsule"><span class="half-color">Phase 4+</span><span class="half-count" id="count4">0</span></div>
+        <div class="cards" id="col4"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">Data: ClinicalTrials.gov public API. General information only — not medical advice.</div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const els = {
+      type: document.getElementById("searchType"),
+      input: document.getElementById("searchInput"),
+      status: document.getElementById("statusFilter"),
+      btn: document.getElementById("searchBtn"),
+      message: document.getElementById("message"),
+      pipeline: document.getElementById("pipeline"),
+      stats: document.getElementById("stats"),
+    };
+
+    els.btn.addEventListener("click", runSearch);
+    els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
+    document.querySelectorAll(".examples a").forEach((a) => {
+      a.addEventListener("click", () => {
+        els.input.value = a.dataset.q;
+        els.type.value = a.dataset.t;
+        runSearch();
+      });
+    });
+
+    async function runSearch() {
+      const term = els.input.value.trim();
+      if (!term) { showMessage("Type a disease or company name first."); return; }
+      showMessage('<div class="spinner"></div>Loading trials from ClinicalTrials.gov…', true);
+      els.pipeline.hidden = true;
+      els.stats.hidden = true;
+
+      const params = new URLSearchParams({
+        pageSize: "100",
+        fields: "NCTId,BriefTitle,Phase,OverallStatus,LeadSponsorName,StartDate",
+      });
+      params.set("query." + els.type.value, term);
+      if (els.status.value) params.set("filter.overallStatus", els.status.value);
+
+      try {
+        const r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
+        if (!r.ok) throw new Error("API returned " + r.status);
+        const data = await r.json();
+        render(data.studies || []);
+      } catch (err) {
+        showMessage("Couldn't load data (" + err.message + "). Check your connection and try again.");
+      }
+    }
+
+    function parseStudy(study) {
+      const p = study.protocolSection || {};
+      return {
+        nct: p.identificationModule?.nctId || "",
+        title: p.identificationModule?.briefTitle || "Untitled study",
+        phases: p.designModule?.phases || [],
+        status: p.statusModule?.overallStatus || "UNKNOWN",
+        sponsor: p.sponsorCollaboratorsModule?.leadSponsor?.name || "Unknown sponsor",
+        start: p.statusModule?.startDateStruct?.date || "",
+      };
+    }
+
+    function highestPhase(phases) {
+      let best = 0;
+      for (const ph of phases) {
+        if (ph === "EARLY_PHASE1" || ph === "PHASE1") best = Math.max(best, 1);
+        if (ph === "PHASE2") best = Math.max(best, 2);
+        if (ph === "PHASE3") best = Math.max(best, 3);
+        if (ph === "PHASE4") best = Math.max(best, 4);
+      }
+      return best;
+    }
+
+    function render(studies) {
+      const cols = { 1: [], 2: [], 3: [], 4: [] };
+      const sponsorCount = {};
+      let recruiting = 0;
+
+      for (const raw of studies) {
+        const t = parseStudy(raw);
+        const phase = highestPhase(t.phases);
+        if (phase === 0) continue;
+        cols[phase].push(t);
+        if (t.status === "RECRUITING") recruiting++;
+        sponsorCount[t.sponsor] = (sponsorCount[t.sponsor] || 0) + 1;
+      }
+
+      const total = cols[1].length + cols[2].length + cols[3].length + cols[4].length;
+      if (total === 0) {
+        showMessage('No phased trials found. Try another term, or set status to “Any status”.');
+        return;
+      }
+
+      for (const phase of [1, 2, 3, 4]) {
+        document.getElementById("count" + phase).textContent = cols[phase].length;
+        document.getElementById("col" + phase).innerHTML =
+          cols[phase].map(cardHTML).join("") ||
+          '<p class="message" style="padding:20px 6px">No trials in this phase.</p>';
+      }
+
+      document.getElementById("statTotal").textContent = total;
+      document.getElementById("statRecruiting").textContent = recruiting;
+      const top = Object.entries(sponsorCount).sort((a, b) => b[1] - a[1])[0];
+      document.getElementById("statSponsor").textContent = top ? shorten(top[0], 22) : "–";
+
+      els.message.hidden = true;
+      els.stats.hidden = false;
+      els.pipeline.hidden = false;
+    }
+
+    function cardHTML(t) {
+      const statusPretty = t.status.toLowerCase().replaceAll("_", " ");
+      const statusClass = t.status === "RECRUITING" ? "status recruiting" : "status";
+      return `
+        <div class="card">
+          <div class="title">${escapeHTML(shorten(t.title, 110))}</div>
+          <div class="sub">${escapeHTML(shorten(t.sponsor, 48))}${t.start ? " · started " + escapeHTML(t.start) : ""}</div>
+          <div class="meta">
+            <span class="${statusClass}">${escapeHTML(statusPretty)}</span>
+            <a class="mono" target="_blank" rel="noopener"
+               href="https://clinicaltrials.gov/study/${encodeURIComponent(t.nct)}">${escapeHTML(t.nct)}</a>
+          </div>
+        </div>`;
+    }
+
+    function showMessage(html, isHTML) {
+      els.message.hidden = false;
+      if (isHTML) els.message.innerHTML = html;
+      else els.message.textContent = html;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recent FDA Approvals — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="stocks.html">Stocks</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>Recent FDA approvals</h1>
+      <p>The newest original drug approvals on record at the US FDA, refreshed live
+         from the Drugs@FDA database every time you open this page.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="message" class="message"><div class="spinner"></div>Loading the latest approvals…</div>
+    <div class="grid cols-2" id="feed"></div>
+  </main>
+
+  <footer>
+    <div class="wrap">Data: openFDA Drugs@FDA dataset. US approvals only — other countries'
+    regulators (EMA, PMDA, etc.) publish separately. Not medical advice.</div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const msg = document.getElementById("message");
+    const feed = document.getElementById("feed");
+
+    (async () => {
+      try {
+        // search: original applications (ORIG) that were approved (AP),
+        // sorted by approval date, newest first.
+        const url = "https://api.fda.gov/drug/drugsfda.json?" +
+          'search=submissions.submission_type:"ORIG"+AND+submissions.submission_status:"AP"' +
+          "&sort=submissions.submission_status_date:desc&limit=30";
+        const r = await fetch(url);
+        if (!r.ok) throw new Error("API returned " + r.status);
+        const d = await r.json();
+        const items = (d.results || []).map(parseApp).filter(Boolean);
+        if (!items.length) throw new Error("No approval records returned.");
+
+        feed.innerHTML = items.map((it) => `
+          <div class="card" style="border-left-color: var(--p4)">
+            <div class="title">${escapeHTML(it.brand)}${it.generic ? ` <span style="color:var(--muted);font-weight:400">(${escapeHTML(shorten(it.generic, 60))})</span>` : ""}</div>
+            <div class="sub">${escapeHTML(it.sponsor)}${it.form ? " · " + escapeHTML(shorten(it.form, 40)) : ""}</div>
+            <div class="meta">
+              <span class="status recruiting">Approved ${escapeHTML(it.date)}</span>
+              <span class="mono">${escapeHTML(it.appNo)}</span>
+            </div>
+          </div>`).join("");
+        msg.hidden = true;
+      } catch (err) {
+        msg.innerHTML = "Couldn't load approvals (" + escapeHTML(err.message) +
+          "). The FDA API occasionally rate-limits — wait a minute and refresh.";
+      }
+    })();
+
+    // Each record is an "application" with submissions and products inside.
+    function parseApp(res) {
+      const sub = (res.submissions || []).find(
+        (s) => s.submission_type === "ORIG" && s.submission_status === "AP"
+      );
+      const product = res.products?.[0];
+      if (!sub || !product) return null;
+      return {
+        brand: product.brand_name || "Unnamed product",
+        generic: (res.openfda?.generic_name || [])[0] || "",
+        sponsor: res.sponsor_name || "Unknown sponsor",
+        form: product.dosage_form || "",
+        date: formatDate(sub.submission_status_date),
+        appNo: res.application_number || "",
+      };
+    }
+
+    // The API gives dates like "20260114" — make them readable.
+    function formatDate(s) {
+      if (!s || s.length !== 8) return s || "";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return months[+s.slice(4, 6) - 1] + " " + (+s.slice(6, 8)) + ", " + s.slice(0, 4);
+    }
+  </script>
+</body>
+</html>
