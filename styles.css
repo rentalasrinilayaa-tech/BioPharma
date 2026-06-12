@@ -203,6 +203,7 @@ button.primary:hover { filter: brightness(1.08); }
 .status.recruiting { background: rgba(46,125,79,0.12); border-color: rgba(46,125,79,0.4); color: var(--p4); }
 .mono { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--p2); text-decoration: none; }
 .mono:hover { text-decoration: underline; }
+.card .country { color: var(--muted); font-size: 11.5px; }
 @media (max-width: 980px) { .pipeline { grid-template-columns: 1fr 1fr; } .pipeline::before { display: none; } }
 @media (max-width: 560px) { .pipeline { grid-template-columns: 1fr; } }
 
