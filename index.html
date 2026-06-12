@@ -31,10 +31,13 @@
   </header>
 
   <main class="wrap">
+    <!-- Three LIVE, domain-relevant numbers. Each starts with a sensible
+         fallback already in the HTML, so the page never looks broken even
+         if a data source is slow or down. JS upgrades them to live values. -->
     <div class="stats">
-      <div class="stat"><div class="num" id="statStudies">…</div><div class="lbl">Studies on ClinicalTrials.gov</div></div>
-      <div class="stat"><div class="num">5</div><div class="lbl">Live dashboards</div></div>
-      <div class="stat"><div class="num">$0</div><div class="lbl">Cost to you</div></div>
+      <div class="stat"><div class="num" id="statStudies">520k+</div><div class="lbl">Studies registered worldwide</div></div>
+      <div class="stat"><div class="num" id="statRecruiting">65k+</div><div class="lbl">Trials recruiting now</div></div>
+      <div class="stat"><div class="num" id="statApprovals">—</div><div class="lbl">FDA approvals this year</div></div>
     </div>
 
     <h2 class="section-title">Explore</h2>
@@ -52,7 +55,7 @@
       <a class="feature" href="drugs.html">
         <div class="kicker">Drug safety &amp; reach</div>
         <h3>Drug Explorer</h3>
-        <p>Reported adverse events for any drug, plus the countries and US states where it's being tested.</p>
+        <p>Reported adverse events for any drug, plus a world map of where it's being tested.</p>
       </a>
       <a class="feature" href="approvals.html">
         <div class="kicker">Regulatory</div>
@@ -76,16 +79,43 @@
 
   <script src="app.js"></script>
   <script>
-    // A small "wow" touch: fetch the live count of all registered studies.
+    // Helper: format a big number as "520k+" style for compact display.
+    function compact(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M+";
+      if (n >= 1000)    return Math.floor(n / 1000) + "k+";
+      return String(n);
+    }
+
+    // Each stat fetches a real number but ALWAYS keeps its fallback if the
+    // request fails — so a visitor never sees a broken "…" placeholder.
     (async () => {
+      // 1) Total studies registered worldwide
       try {
         const r = await fetch("https://clinicaltrials.gov/api/v2/stats/size");
         const d = await r.json();
-        const n = d.totalStudies;
-        if (n) document.getElementById("statStudies").textContent =
-          (n / 1000).toFixed(0) + "k+";
+        if (d.totalStudies) document.getElementById("statStudies").textContent = compact(d.totalStudies);
+      } catch (e) { /* keep fallback */ }
+
+      // 2) Trials recruiting right now (countTotal returns the full match count)
+      try {
+        const r = await fetch("https://clinicaltrials.gov/api/v2/studies?" +
+          "filter.overallStatus=RECRUITING&countTotal=true&pageSize=1");
+        const d = await r.json();
+        if (d.totalCount) document.getElementById("statRecruiting").textContent = compact(d.totalCount);
+      } catch (e) { /* keep fallback */ }
+
+      // 3) FDA approvals so far this year
+      try {
+        const year = new Date().getFullYear();
+        const url = "https://api.fda.gov/drug/drugsfda.json?search=" +
+          encodeURIComponent(`submissions.submission_status:"AP" AND submissions.submission_status_date:[${year}0101 TO ${year}1231]`) +
+          "&limit=1";
+        const r = await fetch(url);
+        const d = await r.json();
+        const total = d.meta?.results?.total;
+        document.getElementById("statApprovals").textContent = total ? total.toLocaleString() : "—";
       } catch (e) {
-        document.getElementById("statStudies").textContent = "500k+";
+        document.getElementById("statApprovals").textContent = "—";
       }
     })();
   </script>
