@@ -192,3 +192,45 @@
 
       document.getElementById("statTotal").textContent = total;
       document.getElementById("statRecruiting").textContent = recruiting;
+      const top = Object.entries(sponsorCount).sort((a, b) => b[1] - a[1])[0];
+      document.getElementById("statSponsor").textContent = top ? shorten(top[0], 22) : "–";
+
+      els.message.hidden = true;
+      els.stats.hidden = false;
+      els.pipeline.hidden = false;
+    }
+
+    function cardHTML(t) {
+      const statusPretty = t.status.toLowerCase().replaceAll("_", " ");
+      const statusClass = t.status === "RECRUITING" ? "status recruiting" : "status";
+
+      // Show up to 2 country names; multinational trials get "+N" extra.
+      // The title attribute reveals the full list when you hover the text.
+      let countryHTML = "";
+      if (t.countries.length) {
+        const shown = t.countries.slice(0, 2).join(", ");
+        const extra = t.countries.length > 2 ? ` +${t.countries.length - 2}` : "";
+        countryHTML = `<span class="country" title="${escapeHTML(t.countries.join(", "))}">🌍 ${escapeHTML(shorten(shown, 34))}${extra}</span>`;
+      }
+
+      return `
+        <div class="card">
+          <div class="title">${escapeHTML(shorten(t.title, 110))}</div>
+          <div class="sub">${escapeHTML(shorten(t.sponsor, 48))}${t.start ? " · started " + escapeHTML(t.start) : ""}</div>
+          <div class="meta">
+            <span class="${statusClass}">${escapeHTML(statusPretty)}</span>
+            ${countryHTML}
+            <a class="mono" target="_blank" rel="noopener"
+               href="https://clinicaltrials.gov/study/${encodeURIComponent(t.nct)}">${escapeHTML(t.nct)}</a>
+          </div>
+        </div>`;
+    }
+
+    function showMessage(html, isHTML) {
+      els.message.hidden = false;
+      if (isHTML) els.message.innerHTML = html;
+      else els.message.textContent = html;
+    }
+  </script>
+</body>
+</html>
