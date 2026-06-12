@@ -113,13 +113,20 @@
 
       const params = new URLSearchParams({
         pageSize: "100",
-        fields: "NCTId,BriefTitle,Phase,OverallStatus,LeadSponsorName,StartDate",
+        // LocationCountry asks the API to include each trial's site countries
+        fields: "NCTId,BriefTitle,Phase,OverallStatus,LeadSponsorName,StartDate,LocationCountry",
       });
       params.set("query." + els.type.value, term);
       if (els.status.value) params.set("filter.overallStatus", els.status.value);
 
       try {
-        const r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
+        let r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
+        // Safety net: if the API ever rejects our fields list (error 400),
+        // retry without it — we get more data than needed, but it works.
+        if (r.status === 400) {
+          params.delete("fields");
+          r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
+        }
         if (!r.ok) throw new Error("API returned " + r.status);
         const data = await r.json();
         render(data.studies || []);
@@ -130,6 +137,10 @@
 
     function parseStudy(study) {
       const p = study.protocolSection || {};
+      // A trial can have many sites; collect each country only once.
+      // A Set is a list that automatically ignores duplicates.
+      const locations = p.contactsLocationsModule?.locations || [];
+      const countries = [...new Set(locations.map((L) => L.country).filter(Boolean))];
       return {
         nct: p.identificationModule?.nctId || "",
         title: p.identificationModule?.briefTitle || "Untitled study",
@@ -137,6 +148,7 @@
         status: p.statusModule?.overallStatus || "UNKNOWN",
         sponsor: p.sponsorCollaboratorsModule?.leadSponsor?.name || "Unknown sponsor",
         start: p.statusModule?.startDateStruct?.date || "",
+        countries: countries,
       };
     }
 
@@ -180,34 +192,3 @@
 
       document.getElementById("statTotal").textContent = total;
       document.getElementById("statRecruiting").textContent = recruiting;
-      const top = Object.entries(sponsorCount).sort((a, b) => b[1] - a[1])[0];
-      document.getElementById("statSponsor").textContent = top ? shorten(top[0], 22) : "–";
-
-      els.message.hidden = true;
-      els.stats.hidden = false;
-      els.pipeline.hidden = false;
-    }
-
-    function cardHTML(t) {
-      const statusPretty = t.status.toLowerCase().replaceAll("_", " ");
-      const statusClass = t.status === "RECRUITING" ? "status recruiting" : "status";
-      return `
-        <div class="card">
-          <div class="title">${escapeHTML(shorten(t.title, 110))}</div>
-          <div class="sub">${escapeHTML(shorten(t.sponsor, 48))}${t.start ? " · started " + escapeHTML(t.start) : ""}</div>
-          <div class="meta">
-            <span class="${statusClass}">${escapeHTML(statusPretty)}</span>
-            <a class="mono" target="_blank" rel="noopener"
-               href="https://clinicaltrials.gov/study/${encodeURIComponent(t.nct)}">${escapeHTML(t.nct)}</a>
-          </div>
-        </div>`;
-    }
-
-    function showMessage(html, isHTML) {
-      els.message.hidden = false;
-      if (isHTML) els.message.innerHTML = html;
-      else els.message.textContent = html;
-    }
-  </script>
-</body>
-</html>
