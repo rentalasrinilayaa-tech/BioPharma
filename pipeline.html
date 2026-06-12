@@ -50,6 +50,9 @@
       <a data-q="Vertex Pharmaceuticals" data-t="spons">Vertex</a>
     </p>
 
+    <!-- The "so what" summary line. Filled in after each search. -->
+    <div class="result-summary" id="summary" hidden></div>
+
     <div class="stats" id="stats" hidden>
       <div class="stat"><div class="num" id="statTotal">–</div><div class="lbl">Trials shown</div></div>
       <div class="stat"><div class="num" id="statRecruiting">–</div><div class="lbl">Recruiting</div></div>
@@ -92,9 +95,10 @@
       message: document.getElementById("message"),
       pipeline: document.getElementById("pipeline"),
       stats: document.getElementById("stats"),
+      summary: document.getElementById("summary"),
     };
 
-    els.btn.addEventListener("click", runSearch);
+    els.btn.addEventListener("click", () => runSearch());
     els.input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
     document.querySelectorAll(".examples a").forEach((a) => {
       a.addEventListener("click", () => {
@@ -104,16 +108,50 @@
       });
     });
 
-    async function runSearch() {
+    /* ---------- Memory + shareable URLs ----------
+       On load we check the address bar first (?q=…&type=…&status=…) so a
+       shared link reproduces the exact search. If there's no link query,
+       we prefill (but don't auto-run) the user's last search from storage. */
+    function loadState() {
+      const url = new URLSearchParams(location.search);
+      if (url.get("q")) {
+        els.input.value = url.get("q");
+        if (url.get("type")) els.type.value = url.get("type");
+        if (url.has("status")) els.status.value = url.get("status");
+        runSearch(false); // already came from a URL, don't rewrite it yet
+        return;
+      }
+      try {
+        const saved = JSON.parse(localStorage.getItem("bp-last-search") || "null");
+        if (saved && saved.q) {
+          els.input.value = saved.q;
+          els.type.value = saved.type || "cond";
+          els.status.value = saved.status || "";
+          els.message.innerHTML =
+            'Showing your last search setup — press <strong>Search trials</strong> to reload it.';
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function saveState(term) {
+      const state = { q: term, type: els.type.value, status: els.status.value };
+      try { localStorage.setItem("bp-last-search", JSON.stringify(state)); } catch (e) {}
+      // Update the address bar without reloading, so the link is shareable.
+      const url = new URLSearchParams({ q: term, type: els.type.value });
+      url.set("status", els.status.value);
+      history.replaceState(null, "", location.pathname + "?" + url.toString());
+    }
+
+    async function runSearch(updateUrl = true) {
       const term = els.input.value.trim();
       if (!term) { showMessage("Type a disease or company name first."); return; }
-      showMessage('<div class="spinner"></div>Loading trials from ClinicalTrials.gov…', true);
-      els.pipeline.hidden = true;
-      els.stats.hidden = true;
+      if (updateUrl) saveState(term);
+
+      showSkeleton();
+      els.summary.hidden = true;
 
       const params = new URLSearchParams({
         pageSize: "100",
-        // LocationCountry asks the API to include each trial's site countries
         fields: "NCTId,BriefTitle,Phase,OverallStatus,LeadSponsorName,StartDate,LocationCountry",
       });
       params.set("query." + els.type.value, term);
@@ -121,15 +159,13 @@
 
       try {
         let r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
-        // Safety net: if the API ever rejects our fields list (error 400),
-        // retry without it — we get more data than needed, but it works.
         if (r.status === 400) {
           params.delete("fields");
           r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + params.toString());
         }
         if (!r.ok) throw new Error("API returned " + r.status);
         const data = await r.json();
-        render(data.studies || []);
+        render(data.studies || [], term);
       } catch (err) {
         showMessage("Couldn't load data (" + err.message + "). Check your connection and try again.");
       }
@@ -137,8 +173,6 @@
 
     function parseStudy(study) {
       const p = study.protocolSection || {};
-      // A trial can have many sites; collect each country only once.
-      // A Set is a list that automatically ignores duplicates.
       const locations = p.contactsLocationsModule?.locations || [];
       const countries = [...new Set(locations.map((L) => L.country).filter(Boolean))];
       return {
@@ -163,10 +197,11 @@
       return best;
     }
 
-    function render(studies) {
+    function render(studies, term) {
       const cols = { 1: [], 2: [], 3: [], 4: [] };
       const sponsorCount = {};
-      let recruiting = 0;
+      let recruiting = 0, recentCount = 0;
+      const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
       for (const raw of studies) {
         const t = parseStudy(raw);
@@ -175,13 +210,11 @@
         cols[phase].push(t);
         if (t.status === "RECRUITING") recruiting++;
         sponsorCount[t.sponsor] = (sponsorCount[t.sponsor] || 0) + 1;
+        if (t.start && new Date(t.start) >= oneYearAgo) recentCount++;
       }
 
       const total = cols[1].length + cols[2].length + cols[3].length + cols[4].length;
-      if (total === 0) {
-        showMessage('No phased trials found. Try another term, or set status to “Any status”.');
-        return;
-      }
+      if (total === 0) { showEmpty(term); return; }
 
       for (const phase of [1, 2, 3, 4]) {
         document.getElementById("count" + phase).textContent = cols[phase].length;
@@ -195,6 +228,18 @@
       const top = Object.entries(sponsorCount).sort((a, b) => b[1] - a[1])[0];
       document.getElementById("statSponsor").textContent = top ? shorten(top[0], 22) : "–";
 
+      // ----- The "so what" auto-summary -----
+      const phaseNames = { 1: "Phase 1", 2: "Phase 2", 3: "Phase 3", 4: "Phase 4+" };
+      let topPhase = 1;
+      for (const p of [2, 3, 4]) if (cols[p].length > cols[topPhase].length) topPhase = p;
+      const bits = [];
+      bits.push(`<strong>${escapeHTML(term)}</strong>: ${total} trial${total === 1 ? "" : "s"} shown`);
+      bits.push(`most are in ${phaseNames[topPhase]} (${cols[topPhase].length})`);
+      if (top) bits.push(`most active sponsor is ${escapeHTML(shorten(top[0], 30))}`);
+      if (recentCount) bits.push(`${recentCount} started in the past year`);
+      els.summary.innerHTML = bits.join(" · ") + ".";
+      els.summary.hidden = false;
+
       els.message.hidden = true;
       els.stats.hidden = false;
       els.pipeline.hidden = false;
@@ -203,16 +248,12 @@
     function cardHTML(t) {
       const statusPretty = t.status.toLowerCase().replaceAll("_", " ");
       const statusClass = t.status === "RECRUITING" ? "status recruiting" : "status";
-
-      // Show up to 2 country names; multinational trials get "+N" extra.
-      // The title attribute reveals the full list when you hover the text.
       let countryHTML = "";
       if (t.countries.length) {
         const shown = t.countries.slice(0, 2).join(", ");
         const extra = t.countries.length > 2 ? ` +${t.countries.length - 2}` : "";
         countryHTML = `<span class="country" title="${escapeHTML(t.countries.join(", "))}">🌍 ${escapeHTML(shorten(shown, 34))}${extra}</span>`;
       }
-
       return `
         <div class="card">
           <div class="title">${escapeHTML(shorten(t.title, 110))}</div>
@@ -226,11 +267,49 @@
         </div>`;
     }
 
-    function showMessage(html, isHTML) {
-      els.message.hidden = false;
-      if (isHTML) els.message.innerHTML = html;
-      else els.message.textContent = html;
+    /* ---------- Polished loading + empty states ---------- */
+    function showSkeleton() {
+      els.stats.hidden = true;
+      els.message.hidden = true;
+      els.pipeline.hidden = false;
+      // Draw 3 grey placeholder cards in each column so the layout
+      // doesn't jump when real data arrives.
+      const ph = '<div class="skel-card"></div>'.repeat(3);
+      for (const phase of [1, 2, 3, 4]) {
+        document.getElementById("count" + phase).textContent = "…";
+        document.getElementById("col" + phase).innerHTML = ph;
+      }
     }
+
+    function showEmpty(term) {
+      els.pipeline.hidden = true;
+      els.stats.hidden = true;
+      els.summary.hidden = true;
+      els.message.hidden = false;
+      const tips = [];
+      if (els.status.value === "RECRUITING")
+        tips.push('set status to <a class="link-action" data-act="any">“Any status”</a>');
+      if (els.type.value === "cond")
+        tips.push("try a broader term (e.g. “cancer” instead of a subtype)");
+      else
+        tips.push("check the company spelling, or search the parent company name");
+      els.message.innerHTML =
+        `No phased trials found for <strong>${escapeHTML(term)}</strong>. You could ` +
+        tips.join(", or ") + ".";
+      const act = els.message.querySelector('[data-act="any"]');
+      if (act) act.addEventListener("click", () => { els.status.value = ""; runSearch(); });
+    }
+
+    function showMessage(html, isHTML) {
+      els.pipeline.hidden = true;
+      els.stats.hidden = true;
+      els.summary.hidden = true;
+      els.message.hidden = false;
+      if (isHTML === false) els.message.textContent = html;
+      else els.message.innerHTML = html;
+    }
+
+    loadState(); // run once when the page opens
   </script>
 </body>
 </html>
