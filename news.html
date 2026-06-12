@@ -69,14 +69,7 @@
   <script src="app.js"></script>
   <script>
     /* ================================================================
-       SECTION 1 — EVENTS
-       This is a CURATED list. To maintain it monthly, just edit the
-       EVENTS array below: add new events, and old ones disappear on
-       their own once the end date passes. Each event needs:
-         name, organizer, city, venue, start (YYYY-MM-DD),
-         end (YYYY-MM-DD or same as start), cost ("Free" or "Paid"),
-         topic, link
-       Verified as of mid-2026 — always confirm dates on the official site.
+       SECTION 1 — EVENTS  (curated; edit the EVENTS array to maintain)
        ================================================================ */
     const EVENTS = [
       { name: "BIO International Convention 2026", organizer: "Biotechnology Innovation Organization (BIO)",
@@ -174,9 +167,9 @@
 
     /* ================================================================
        SECTION 2 — BREAKING NEWS
-       Google News RSS (always current, no key) converted to JSON by the
-       free rss2json service. If that service is busy, we show a direct
-       link to Google News so the feature never dead-ends.
+       Google News RSS (always current, no key). To read it from a static
+       site we route through free CORS proxies and parse the XML ourselves.
+       We try THREE proxies in order, so one being busy isn't fatal.
        ================================================================ */
     const newsList = document.getElementById("newsList");
 
@@ -184,29 +177,53 @@
       const then = new Date(dateStr), now = new Date();
       const mins = Math.round((now - then) / 60000);
       if (isNaN(mins)) return "";
-      if (mins < 60) return mins + "m ago";
+      if (mins < 60) return Math.max(1, mins) + "m ago";
       const hrs = Math.round(mins / 60);
       if (hrs < 24) return hrs + "h ago";
-      const days = Math.round(hrs / 24);
-      return days + "d ago";
+      return Math.round(hrs / 24) + "d ago";
+    }
+
+    // Try several free proxies; return the RSS XML text from the first that works.
+    async function fetchViaProxies(targetUrl) {
+      const attempts = [
+        { url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), json: false },
+        { url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), json: false },
+        { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl), json: true },
+      ];
+      for (const a of attempts) {
+        try {
+          const res = await fetch(a.url);
+          if (!res.ok) continue;
+          const body = a.json ? (await res.json()).contents : await res.text();
+          if (body && body.indexOf("<item") !== -1) return body;
+        } catch (e) { /* try the next proxy */ }
+      }
+      throw new Error("all proxies busy");
+    }
+
+    // Turn the RSS XML string into a simple array of headline objects.
+    function parseRss(xmlString) {
+      const xml = new DOMParser().parseFromString(xmlString, "text/xml");
+      return [...xml.querySelectorAll("item")].map((item) => {
+        const get = (tag) => item.querySelector(tag)?.textContent || "";
+        return { title: get("title"), link: get("link"), pubDate: get("pubDate"), source: get("source") };
+      });
     }
 
     async function loadNews(query) {
       newsList.innerHTML = '<div class="message"><div class="spinner"></div>Loading the latest headlines…</div>';
       const googleRSS = "https://news.google.com/rss/search?q=" +
         encodeURIComponent(query) + "&hl=en-US&gl=US&ceid=US:en";
-      const url = "https://api.rss2json.com/v1/api.json?count=20&rss_url=" + encodeURIComponent(googleRSS);
-
       try {
-        const r = await fetch(url);
-        const d = await r.json();
-        if (d.status !== "ok" || !d.items || !d.items.length) throw new Error("no items");
+        const xml = await fetchViaProxies(googleRSS);
+        const items = parseRss(xml).slice(0, 20);
+        if (!items.length) throw new Error("no items");
 
-        newsList.innerHTML = d.items.map((it) => {
-          // Google News titles look like "Headline - Source"; split off the source.
-          let title = it.title, source = it.author || "";
+        newsList.innerHTML = items.map((it) => {
+          // Google News titles read "Headline - Source"; tidy that up.
+          let title = it.title, source = it.source || "";
           const dash = title.lastIndexOf(" - ");
-          if (dash > 0 && !source) { source = title.slice(dash + 3); title = title.slice(0, dash); }
+          if (dash > 0) { if (!source) source = title.slice(dash + 3); title = title.slice(0, dash); }
           return `
             <a class="news-item" href="${escapeHTML(it.link)}" target="_blank" rel="noopener">
               <div class="news-title">${escapeHTML(title)}</div>
@@ -219,7 +236,7 @@
       } catch (err) {
         const direct = "https://news.google.com/search?q=" + encodeURIComponent(query);
         newsList.innerHTML =
-          '<div class="message">Couldn\u2019t load the live feed right now (the free converter may be busy). ' +
+          '<div class="message">Couldn\u2019t load the live feed right now (free proxies may be busy — try again in a moment). ' +
           '<a href="' + direct + '" target="_blank" rel="noopener">Open these headlines on Google News →</a></div>';
       }
     }
