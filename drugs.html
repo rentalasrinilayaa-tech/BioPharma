@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Google Charts: free mapping/charting library, no API key needed -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
 
@@ -24,8 +26,8 @@
     </nav>
     <div class="hero">
       <h1>Drug Explorer</h1>
-      <p>Type a drug name to see its most-reported adverse events, where in the world
-         it's being tested, and its US approval status.</p>
+      <p>Type a drug name to see its most-reported adverse events, a world map of
+         where it's being tested, and its US approval status.</p>
     </div>
   </header>
 
@@ -41,7 +43,6 @@
       <a data-q="lecanemab">lecanemab</a>
     </p>
 
-    <!-- Honest framing matters: adverse-event reports are not proven side effects. -->
     <div class="notice">
       <strong>How to read this data:</strong> "adverse events" are reports sent to the FDA by
       patients and clinicians after taking a drug. A report does <em>not</em> prove the drug
@@ -59,20 +60,20 @@
         <div class="stat"><div class="num" id="statFDA">–</div><div class="lbl">US FDA record</div></div>
       </div>
 
+      <div class="panel" style="margin-top:14px">
+        <h2 class="section-title" style="margin-top:0">Where it's being tested worldwide</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Darker = more trials. Hover any country for the exact count.</p>
+        <div id="worldMap" style="width:100%"></div>
+      </div>
+
       <div class="grid cols-2" style="margin-top:14px">
         <div class="panel">
           <h2 class="section-title" style="margin-top:0">Most-reported adverse events</h2>
           <div id="reactions"></div>
         </div>
-        <div>
-          <div class="panel" style="margin-bottom:14px">
-            <h2 class="section-title" style="margin-top:0">Countries where it's in trials</h2>
-            <div class="chips" id="countries"></div>
-          </div>
-          <div class="panel">
-            <h2 class="section-title" style="margin-top:0">US states with active trial sites</h2>
-            <div class="chips" id="states"></div>
-          </div>
+        <div class="panel" id="usPanel">
+          <h2 class="section-title" style="margin-top:0">US states with trial sites</h2>
+          <div id="usMap" style="width:100%"></div>
         </div>
       </div>
     </div>
@@ -80,14 +81,20 @@
 
   <footer>
     <div class="wrap">Data: openFDA (FAERS adverse events, Drugs@FDA) and ClinicalTrials.gov.
-    General information only — not medical advice.</div>
+    Maps by Google Charts. General information only — not medical advice.</div>
   </footer>
 
   <script src="app.js"></script>
   <script>
+    // Tell Google Charts which package we need, and create a "promise"
+    // that resolves once the library has finished loading.
+    google.charts.load("current", { packages: ["geochart"] });
+    const chartsReady = new Promise((res) => google.charts.setOnLoadCallback(res));
+
     const input = document.getElementById("drugInput");
     const msg = document.getElementById("message");
     const results = document.getElementById("results");
+    let lastGeo = null; // we remember the last result so we can redraw maps on resize/theme change
 
     document.getElementById("drugBtn").addEventListener("click", explore);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") explore(); });
@@ -101,8 +108,6 @@
       results.hidden = true;
       show('<div class="spinner"></div>Gathering data from FDA and ClinicalTrials.gov…', true);
 
-      // Run all three lookups at the same time. allSettled = "wait for
-      // all, but don't fail everything if one fails" — resilient design.
       const [events, trials, fda] = await Promise.allSettled([
         fetchAdverseEvents(drug),
         fetchTrials(drug),
@@ -120,21 +125,18 @@
       renderAll(ev, tr, fd);
     }
 
-    // ---- 1. Adverse events: openFDA counts reactions across all reports ----
     async function fetchAdverseEvents(drug) {
       const q = encodeURIComponent('"' + drug + '"');
       const url = `https://api.fda.gov/drug/event.json?search=patient.drug.medicinalproduct:${q}+patient.drug.openfda.generic_name:${q}&count=patient.reaction.reactionmeddrapt.exact`;
       const r = await fetch(url);
       if (!r.ok) return null;
       const d = await r.json();
-      const reactions = (d.results || []).slice(0, 10);            // top 10
+      const reactions = (d.results || []).slice(0, 10);
       const totalReports = (d.results || []).reduce((s, x) => s + x.count, 0);
       return reactions.length ? { reactions, totalReports } : null;
     }
 
-    // ---- 2. Trials + locations from ClinicalTrials.gov ----
     async function fetchTrials(drug) {
-      // query.intr = search by intervention (the drug being tested)
       const url = "https://clinicaltrials.gov/api/v2/studies?" + new URLSearchParams({
         "query.intr": drug,
         pageSize: "75",
@@ -149,7 +151,7 @@
       const states = {};
       for (const s of studies) {
         const locs = s.protocolSection?.contactsLocationsModule?.locations || [];
-        const seenCountry = new Set();   // count each country once per trial
+        const seenCountry = new Set();
         const seenState = new Set();
         for (const L of locs) {
           if (L.country && !seenCountry.has(L.country)) {
@@ -165,7 +167,6 @@
       return { total: studies.length, countries, states };
     }
 
-    // ---- 3. US approval status from Drugs@FDA ----
     async function fetchFDAStatus(drug) {
       const q = encodeURIComponent('"' + drug + '"');
       const url = `https://api.fda.gov/drug/drugsfda.json?search=openfda.generic_name:${q}+openfda.brand_name:${q}&limit=1`;
@@ -175,22 +176,15 @@
       const res = d.results?.[0];
       if (!res) return null;
       const product = res.products?.[0];
-      return {
-        status: product?.marketing_status || "On record",
-        brand: product?.brand_name || "",
-        sponsor: res.sponsor_name || "",
-      };
+      return { status: product?.marketing_status || "On record" };
     }
 
-    // ---- Drawing everything ----
     function renderAll(ev, tr, fd) {
-      // Stats
       document.getElementById("statReports").textContent = ev ? ev.totalReports.toLocaleString() : "0";
       document.getElementById("statTrials").textContent = tr ? tr.total + (tr.total === 75 ? "+" : "") : "0";
       document.getElementById("statCountries").textContent = tr ? Object.keys(tr.countries).length : "0";
       document.getElementById("statFDA").textContent = fd ? prettify(fd.status) : "None found";
 
-      // Reaction bars, scaled to the most common one
       const rx = document.getElementById("reactions");
       if (ev) {
         const max = ev.reactions[0].count;
@@ -204,21 +198,94 @@
         rx.innerHTML = '<p class="message" style="padding:10px">No US adverse-event reports found for this name.</p>';
       }
 
-      // Country & state chips, sorted by trial count
-      fillChips("countries", tr ? tr.countries : {}, "No trial locations found.");
-      fillChips("states", tr ? tr.states : {}, "No US trial sites found.");
-
+      lastGeo = tr ? { countries: tr.countries, states: tr.states } : { countries: {}, states: {} };
       msg.hidden = true;
       results.hidden = false;
+      drawMaps();
     }
 
-    function fillChips(id, counts, emptyText) {
-      const el = document.getElementById(id);
-      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-      el.innerHTML = entries.length
-        ? entries.map(([name, n]) => `<span class="chip">${escapeHTML(name)} <b>×${n}</b></span>`).join("")
-        : `<p class="message" style="padding:6px">${emptyText}</p>`;
+    /* ---------- Data cleaning: translating between two systems ----------
+       ClinicalTrials.gov country names → names Google's map understands. */
+    const COUNTRY_FIX = {
+      "Turkey (Türkiye)": "Turkey",
+      "Korea, Republic of": "South Korea",
+      "Korea, Democratic People's Republic of": "North Korea",
+      "Russian Federation": "Russia",
+      "Iran, Islamic Republic of": "Iran",
+      "Viet Nam": "Vietnam",
+      "Syrian Arab Republic": "Syria",
+      "Lao People's Democratic Republic": "Laos",
+      "Moldova, Republic of": "Moldova",
+      "Tanzania, United Republic of": "Tanzania",
+      "Venezuela, Bolivarian Republic of": "Venezuela",
+      "Bolivia, Plurinational State of": "Bolivia",
+      "Brunei Darussalam": "Brunei",
+      "Côte d'Ivoire": "Ivory Coast",
+      "Congo, The Democratic Republic of the": "Democratic Republic of the Congo",
+      "Czechia": "Czech Republic",
+      "North Macedonia": "Macedonia",
+    };
+    // US state names → ISO codes the map expects (US-MA etc.)
+    const STATE_CODES = {
+      "Alabama":"US-AL","Alaska":"US-AK","Arizona":"US-AZ","Arkansas":"US-AR","California":"US-CA",
+      "Colorado":"US-CO","Connecticut":"US-CT","Delaware":"US-DE","District of Columbia":"US-DC",
+      "Florida":"US-FL","Georgia":"US-GA","Hawaii":"US-HI","Idaho":"US-ID","Illinois":"US-IL",
+      "Indiana":"US-IN","Iowa":"US-IA","Kansas":"US-KS","Kentucky":"US-KY","Louisiana":"US-LA",
+      "Maine":"US-ME","Maryland":"US-MD","Massachusetts":"US-MA","Michigan":"US-MI","Minnesota":"US-MN",
+      "Mississippi":"US-MS","Missouri":"US-MO","Montana":"US-MT","Nebraska":"US-NE","Nevada":"US-NV",
+      "New Hampshire":"US-NH","New Jersey":"US-NJ","New Mexico":"US-NM","New York":"US-NY",
+      "North Carolina":"US-NC","North Dakota":"US-ND","Ohio":"US-OH","Oklahoma":"US-OK","Oregon":"US-OR",
+      "Pennsylvania":"US-PA","Rhode Island":"US-RI","South Carolina":"US-SC","South Dakota":"US-SD",
+      "Tennessee":"US-TN","Texas":"US-TX","Utah":"US-UT","Vermont":"US-VT","Virginia":"US-VA",
+      "Washington":"US-WA","West Virginia":"US-WV","Wisconsin":"US-WI","Wyoming":"US-WY",
+      "Puerto Rico":"US-PR",
+    };
+
+    async function drawMaps() {
+      if (!lastGeo) return;
+      await chartsReady; // wait until the Google Charts library is loaded
+
+      const dark = document.documentElement.getAttribute("data-theme") === "dark";
+      const baseOptions = {
+        backgroundColor: "transparent",
+        datalessRegionColor: dark ? "#243049" : "#EDF0F4",
+        colorAxis: { colors: ["#BFE3E4", "#1F8A8C"] },  // light → dark teal
+        legend: "none",
+        tooltip: { isHtml: false },
+      };
+
+      // World map
+      const cEntries = Object.entries(lastGeo.countries)
+        .map(([name, n]) => [COUNTRY_FIX[name] || name, n]);
+      if (cEntries.length) {
+        const dt = google.visualization.arrayToDataTable([["Country", "Trials"], ...cEntries]);
+        new google.visualization.GeoChart(document.getElementById("worldMap"))
+          .draw(dt, baseOptions);
+      }
+
+      // US states map (hidden entirely if no US sites)
+      const sEntries = Object.entries(lastGeo.states)
+        .filter(([name]) => STATE_CODES[name])
+        .map(([name, n]) => [{ v: STATE_CODES[name], f: name }, n]);
+      const usPanel = document.getElementById("usPanel");
+      if (sEntries.length) {
+        usPanel.hidden = false;
+        const dt = google.visualization.arrayToDataTable([["State", "Trials"], ...sEntries]);
+        new google.visualization.GeoChart(document.getElementById("usMap"))
+          .draw(dt, { ...baseOptions, region: "US", resolution: "provinces" });
+      } else {
+        usPanel.hidden = true;
+      }
     }
+
+    // Redraw maps when the window is resized (so they fit) or theme flips.
+    let resizeTimer;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(drawMaps, 250);
+    });
+    const themeBtn = document.querySelector(".theme-toggle");
+    if (themeBtn) themeBtn.addEventListener("click", () => setTimeout(drawMaps, 60));
 
     function prettify(s) {
       s = String(s).toLowerCase();
