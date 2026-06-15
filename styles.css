@@ -406,3 +406,7 @@ footer {
 .news-source { font-size: 12px; color: var(--p2); font-weight: 500; }
 .news-time { font-size: 12px; color: var(--muted); }
 @media (max-width: 560px) { .event-date { flex-basis: 48px; height: 54px; } }
+
+/* ---- Patent rows (right column of News & Events) ---- */
+.news-item.patent { border-left-color: var(--p1); }
+.patent-assignee { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
