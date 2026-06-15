@@ -200,24 +200,24 @@
     }
 
     /* ================================================================
-       SHARED — fetch a URL through free CORS proxies (news + patents).
+       SHARED — fetch a URL through a proxy (news + patents).
+       Your own Cloudflare Worker is tried FIRST (reliable, no ad-blocker
+       issues). The free public proxies remain as backup.
        ================================================================ */
+    const WORKER_URL = "https://biopharma-proxy.nilayaarentala.workers.dev";
+
     async function fetchTextViaProxies(targetUrl, mustContain) {
-      const attempts = [
-        { url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), json: false },
-        { url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), json: false },
-        { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl), json: true },
-      ];
-      for (const a of attempts) {
-        try {
-          const res = await fetch(a.url);
-          if (!res.ok) continue;
-          const body = a.json ? (await res.json()).contents : await res.text();
-          if (body && (!mustContain || body.indexOf(mustContain) !== -1)) return body;
-        } catch (e) { /* try the next proxy */ }
+      const attempts = [];
+      // 1) Your own Worker first — only if a real URL is set.
+      if (WORKER_URL.indexOf("workers.dev") !== -1 && WORKER_URL.indexOf("YOUR-SUBDOMAIN") === -1) {
+        attempts.push({ url: WORKER_URL + "?url=" + encodeURIComponent(targetUrl), json: false });
       }
-      throw new Error("all proxies busy");
-    }
+      // 2) Free public proxies as backup.
+      attempts.push({ url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), json: false });
+      attempts.push({ url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), json: false });
+      attempts.push({ url: "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl), json: true });
+
+      for (const a of attempts) {
 
     /* ================================================================
        SECTION 2 — BREAKING NEWS  (Google News RSS via proxies)
