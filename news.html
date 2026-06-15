@@ -25,14 +25,14 @@
     </nav>
     <div class="hero">
       <h1>News &amp; Events</h1>
-      <p>Upcoming US biotech &amp; pharma conferences open to industry, plus the latest
-         breaking headlines from across the sector — refreshed every time you visit.</p>
+      <p>Upcoming US biotech &amp; pharma conferences open to industry, the latest breaking
+         headlines, and the newest patents to clear the US patent office.</p>
     </div>
   </header>
 
   <main class="wrap">
 
-    <!-- ============ SECTION 1: EVENTS DASHBOARD ============ -->
+    <!-- ============ SECTION 1: EVENTS DASHBOARD (full width) ============ -->
     <h2 class="section-title">Upcoming US industry events</h2>
     <p style="color:var(--muted);font-size:13.5px;margin-bottom:6px">
       Major conferences open to professionals who register. Past events drop off automatically.
@@ -45,210 +45,25 @@
     <div class="grid cols-2" id="eventGrid" style="margin-top:12px"></div>
     <p id="eventEmpty" class="message" hidden>No upcoming events match this filter.</p>
 
-    <!-- ============ SECTION 2: BREAKING NEWS ============ -->
-    <h2 class="section-title" style="margin-top:34px">Breaking industry news</h2>
-    <div class="event-filters" id="newsTopics">
-      <button class="topic-chip active" data-q='pharmaceutical OR biotech industry'>All</button>
-      <button class="topic-chip" data-q='FDA pharma OR biotech regulation'>FDA &amp; Regulatory</button>
-      <button class="topic-chip" data-q='clinical trial results pharma OR biotech'>Clinical trials</button>
-      <button class="topic-chip" data-q='pharma OR biotech acquisition OR merger deal'>Deals &amp; M&amp;A</button>
-      <button class="topic-chip" data-q='FDA drug approval'>Approvals</button>
-    </div>
-    <div id="newsList" style="margin-top:12px"></div>
+    <!-- ============ NEWS (left) + PATENTS (right) ============ -->
+    <div class="grid cols-2" style="margin-top:34px; align-items:start">
 
-  </main>
+      <!-- LEFT: breaking news -->
+      <div>
+        <h2 class="section-title" style="margin-top:0">Breaking industry news</h2>
+        <div class="event-filters" id="newsTopics">
+          <button class="topic-chip active" data-q='pharmaceutical OR biotech industry'>All</button>
+          <button class="topic-chip" data-q='FDA pharma OR biotech regulation'>FDA</button>
+          <button class="topic-chip" data-q='clinical trial results pharma OR biotech'>Trials</button>
+          <button class="topic-chip" data-q='pharma OR biotech acquisition OR merger deal'>Deals</button>
+          <button class="topic-chip" data-q='FDA drug approval'>Approvals</button>
+        </div>
+        <div id="newsList" style="margin-top:12px"></div>
+      </div>
 
-  <footer>
-    <div class="wrap">
-      Events are a curated list maintained by the site owner — verify details on each event's
-      official site before registering. News via Google News; headlines link to original publishers.
-      Not medical or investment advice.
-    </div>
-  </footer>
-
-  <script src="app.js"></script>
-  <script>
-    /* ================================================================
-       SECTION 1 — EVENTS  (curated; edit the EVENTS array to maintain)
-       ================================================================ */
-    const EVENTS = [
-      { name: "BIO International Convention 2026", organizer: "Biotechnology Innovation Organization (BIO)",
-        city: "San Diego, CA", venue: "San Diego Convention Center",
-        start: "2026-06-22", end: "2026-06-25", cost: "Paid",
-        topic: "Partnering, policy & business development",
-        link: "https://www.bio.org/events/bio-international-convention" },
-
-      { name: "BioHealth Capital Region Week 2026", organizer: "BioHealth Capital Region",
-        city: "Rockville, MD", venue: "US Pharmacopeia",
-        start: "2026-09-15", end: "2026-09-17", cost: "Paid",
-        topic: "Regional ecosystem, capital & commercialization",
-        link: "https://www.google.com/search?q=BioHealth+Capital+Region+Week+2026" },
-
-      { name: "RESI Boston 2026 (Biotech Week Boston)", organizer: "Life Science Nation",
-        city: "Boston, MA", venue: "Westin Copley Place",
-        start: "2026-09-22", end: "2026-09-23", cost: "Paid",
-        topic: "Early-stage partnering & investor matchmaking",
-        link: "https://www.google.com/search?q=RESI+Boston+2026" },
-
-      { name: "Cell & Gene Meeting on the Mesa 2026", organizer: "Alliance for Regenerative Medicine (ARM)",
-        city: "Phoenix, AZ", venue: "TBA",
-        start: "2026-10-05", end: "2026-10-07", cost: "Paid",
-        topic: "Cell & gene therapy partnering",
-        link: "https://www.google.com/search?q=Cell+and+Gene+Meeting+on+the+Mesa+2026" },
-
-      { name: "LogiPharma USA 2026", organizer: "Worldwide Business Research (WBR)",
-        city: "Boston, MA", venue: "Sheraton Boston",
-        start: "2026-10-05", end: "2026-10-06", cost: "Paid",
-        topic: "Pharma supply chain & logistics",
-        link: "https://www.google.com/search?q=LogiPharma+USA+2026" },
-
-      { name: "LSI Emerging Medtech Summit USA 2026", organizer: "LSI",
-        city: "Washington, DC", venue: "TBA",
-        start: "2026-10-18", end: "2026-10-21", cost: "Paid",
-        topic: "Medtech & healthtech investment / partnering",
-        link: "https://www.google.com/search?q=LSI+Emerging+Medtech+Summit+2026" },
-    ];
-
-    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-    function fmtDateRange(startISO, endISO) {
-      const s = new Date(startISO + "T00:00:00");
-      const e = new Date((endISO || startISO) + "T00:00:00");
-      const sM = MONTHS[s.getMonth()], eM = MONTHS[e.getMonth()];
-      if (startISO === endISO || !endISO) return `${sM} ${s.getDate()}, ${s.getFullYear()}`;
-      if (sM === eM) return `${sM} ${s.getDate()}–${e.getDate()}, ${e.getFullYear()}`;
-      return `${sM} ${s.getDate()} – ${eM} ${e.getDate()}, ${e.getFullYear()}`;
-    }
-
-    function renderEvents(costFilter) {
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const grid = document.getElementById("eventGrid");
-      const empty = document.getElementById("eventEmpty");
-
-      const upcoming = EVENTS
-        .filter((ev) => new Date((ev.end || ev.start) + "T00:00:00") >= today)
-        .filter((ev) => costFilter === "all" || ev.cost === costFilter)
-        .sort((a, b) => a.start.localeCompare(b.start));
-
-      if (!upcoming.length) { grid.innerHTML = ""; empty.hidden = false; return; }
-      empty.hidden = true;
-
-      grid.innerHTML = upcoming.map((ev) => {
-        const s = new Date(ev.start + "T00:00:00");
-        const costClass = ev.cost === "Free" ? "cost free" : "cost";
-        return `
-          <a class="event-card" href="${escapeHTML(ev.link)}" target="_blank" rel="noopener">
-            <div class="event-date">
-              <span class="ed-month">${MONTHS[s.getMonth()]}</span>
-              <span class="ed-day">${s.getDate()}</span>
-            </div>
-            <div class="event-body">
-              <div class="event-name">${escapeHTML(ev.name)}</div>
-              <div class="event-meta">📅 ${escapeHTML(fmtDateRange(ev.start, ev.end))}</div>
-              <div class="event-meta">📍 ${escapeHTML(ev.venue)} · ${escapeHTML(ev.city)}</div>
-              <div class="event-meta">🏛 ${escapeHTML(ev.organizer)}</div>
-              <div class="event-tags">
-                <span class="${costClass}">${escapeHTML(ev.cost)}</span>
-                <span class="event-topic">${escapeHTML(ev.topic)}</span>
-              </div>
-            </div>
-          </a>`;
-      }).join("");
-    }
-
-    document.querySelectorAll('.event-filters [data-cost]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll('.event-filters [data-cost]').forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        renderEvents(btn.dataset.cost);
-      });
-    });
-    renderEvents("all");
-
-    /* ================================================================
-       SECTION 2 — BREAKING NEWS
-       Google News RSS (always current, no key). To read it from a static
-       site we route through free CORS proxies and parse the XML ourselves.
-       We try THREE proxies in order, so one being busy isn't fatal.
-       ================================================================ */
-    const newsList = document.getElementById("newsList");
-
-    function timeAgo(dateStr) {
-      const then = new Date(dateStr), now = new Date();
-      const mins = Math.round((now - then) / 60000);
-      if (isNaN(mins)) return "";
-      if (mins < 60) return Math.max(1, mins) + "m ago";
-      const hrs = Math.round(mins / 60);
-      if (hrs < 24) return hrs + "h ago";
-      return Math.round(hrs / 24) + "d ago";
-    }
-
-    // Try several free proxies; return the RSS XML text from the first that works.
-    async function fetchViaProxies(targetUrl) {
-      const attempts = [
-        { url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), json: false },
-        { url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), json: false },
-        { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl), json: true },
-      ];
-      for (const a of attempts) {
-        try {
-          const res = await fetch(a.url);
-          if (!res.ok) continue;
-          const body = a.json ? (await res.json()).contents : await res.text();
-          if (body && body.indexOf("<item") !== -1) return body;
-        } catch (e) { /* try the next proxy */ }
-      }
-      throw new Error("all proxies busy");
-    }
-
-    // Turn the RSS XML string into a simple array of headline objects.
-    function parseRss(xmlString) {
-      const xml = new DOMParser().parseFromString(xmlString, "text/xml");
-      return [...xml.querySelectorAll("item")].map((item) => {
-        const get = (tag) => item.querySelector(tag)?.textContent || "";
-        return { title: get("title"), link: get("link"), pubDate: get("pubDate"), source: get("source") };
-      });
-    }
-
-    async function loadNews(query) {
-      newsList.innerHTML = '<div class="message"><div class="spinner"></div>Loading the latest headlines…</div>';
-      const googleRSS = "https://news.google.com/rss/search?q=" +
-        encodeURIComponent(query) + "&hl=en-US&gl=US&ceid=US:en";
-      try {
-        const xml = await fetchViaProxies(googleRSS);
-        const items = parseRss(xml).slice(0, 20);
-        if (!items.length) throw new Error("no items");
-
-        newsList.innerHTML = items.map((it) => {
-          // Google News titles read "Headline - Source"; tidy that up.
-          let title = it.title, source = it.source || "";
-          const dash = title.lastIndexOf(" - ");
-          if (dash > 0) { if (!source) source = title.slice(dash + 3); title = title.slice(0, dash); }
-          return `
-            <a class="news-item" href="${escapeHTML(it.link)}" target="_blank" rel="noopener">
-              <div class="news-title">${escapeHTML(title)}</div>
-              <div class="news-meta">
-                <span class="news-source">${escapeHTML(source || "News")}</span>
-                <span class="news-time">${escapeHTML(timeAgo(it.pubDate))}</span>
-              </div>
-            </a>`;
-        }).join("");
-      } catch (err) {
-        const direct = "https://news.google.com/search?q=" + encodeURIComponent(query);
-        newsList.innerHTML =
-          '<div class="message">Couldn\u2019t load the live feed right now (free proxies may be busy — try again in a moment). ' +
-          '<a href="' + direct + '" target="_blank" rel="noopener">Open these headlines on Google News →</a></div>';
-      }
-    }
-
-    document.querySelectorAll('#newsTopics [data-q]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll('#newsTopics [data-q]').forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        loadNews(btn.dataset.q);
-      });
-    });
-    loadNews(document.querySelector('#newsTopics [data-q]').dataset.q);
-  </script>
-</body>
-</html>
+      <!-- RIGHT: latest patents -->
+      <div>
+        <h2 class="section-title" style="margin-top:0">Latest biotech &amp; pharma patents</h2>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:4px">
+          Newest US grants in drug (CPC A61K) &amp; biotech (C12N) classes. Patent data updates
+          quarterly, so "newest" reflects the latest USPTO
