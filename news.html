@@ -66,4 +66,272 @@
         <h2 class="section-title" style="margin-top:0">Latest biotech &amp; pharma patents</h2>
         <p style="color:var(--muted);font-size:13px;margin-bottom:4px">
           Newest US grants in drug (CPC A61K) &amp; biotech (C12N) classes. Patent data updates
-          quarterly, so "newest" reflects the latest USPTO
+          quarterly, so "newest" reflects the latest USPTO dataset.
+        </p>
+        <div id="patentList" style="margin-top:12px"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Events are a curated list — verify details on each official site before registering.
+      News via Google News; patents via USPTO PatentsView. Headlines and patents link to their
+      original sources. Not medical, legal, or investment advice.
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    /* Self-contained helpers: use the shared ones from app.js if present,
+       otherwise define our own. This makes the page work even if app.js
+       hasn't loaded — and (crucially) never throws to halt the script. */
+    const esc = (typeof escapeHTML === "function") ? escapeHTML : function (s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    };
+    const cut = (typeof shorten === "function") ? shorten : function (s, n) {
+      s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s;
+    };
+
+    /* ================================================================
+       SECTION 1 — EVENTS  (curated; edit the EVENTS array to maintain)
+       ================================================================ */
+    const EVENTS = [
+      { name: "BIO International Convention 2026", organizer: "Biotechnology Innovation Organization (BIO)",
+        city: "San Diego, CA", venue: "San Diego Convention Center",
+        start: "2026-06-22", end: "2026-06-25", cost: "Paid",
+        topic: "Partnering, policy & business development",
+        link: "https://www.bio.org/events/bio-international-convention" },
+
+      { name: "BioHealth Capital Region Week 2026", organizer: "BioHealth Capital Region",
+        city: "Rockville, MD", venue: "US Pharmacopeia",
+        start: "2026-09-15", end: "2026-09-17", cost: "Paid",
+        topic: "Regional ecosystem, capital & commercialization",
+        link: "https://www.google.com/search?q=BioHealth+Capital+Region+Week+2026" },
+
+      { name: "RESI Boston 2026 (Biotech Week Boston)", organizer: "Life Science Nation",
+        city: "Boston, MA", venue: "Westin Copley Place",
+        start: "2026-09-22", end: "2026-09-23", cost: "Paid",
+        topic: "Early-stage partnering & investor matchmaking",
+        link: "https://www.google.com/search?q=RESI+Boston+2026" },
+
+      { name: "Cell & Gene Meeting on the Mesa 2026", organizer: "Alliance for Regenerative Medicine (ARM)",
+        city: "Phoenix, AZ", venue: "TBA",
+        start: "2026-10-05", end: "2026-10-07", cost: "Paid",
+        topic: "Cell & gene therapy partnering",
+        link: "https://www.google.com/search?q=Cell+and+Gene+Meeting+on+the+Mesa+2026" },
+
+      { name: "LogiPharma USA 2026", organizer: "Worldwide Business Research (WBR)",
+        city: "Boston, MA", venue: "Sheraton Boston",
+        start: "2026-10-05", end: "2026-10-06", cost: "Paid",
+        topic: "Pharma supply chain & logistics",
+        link: "https://www.google.com/search?q=LogiPharma+USA+2026" },
+
+      { name: "LSI Emerging Medtech Summit USA 2026", organizer: "LSI",
+        city: "Washington, DC", venue: "TBA",
+        start: "2026-10-18", end: "2026-10-21", cost: "Paid",
+        topic: "Medtech & healthtech investment / partnering",
+        link: "https://www.google.com/search?q=LSI+Emerging+Medtech+Summit+2026" },
+    ];
+
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function fmtDateRange(startISO, endISO) {
+      const s = new Date(startISO + "T00:00:00");
+      const e = new Date((endISO || startISO) + "T00:00:00");
+      const sM = MONTHS[s.getMonth()], eM = MONTHS[e.getMonth()];
+      if (startISO === endISO || !endISO) return `${sM} ${s.getDate()}, ${s.getFullYear()}`;
+      if (sM === eM) return `${sM} ${s.getDate()}–${e.getDate()}, ${e.getFullYear()}`;
+      return `${sM} ${s.getDate()} – ${eM} ${e.getDate()}, ${e.getFullYear()}`;
+    }
+
+    function renderEvents(costFilter) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const grid = document.getElementById("eventGrid");
+      const empty = document.getElementById("eventEmpty");
+
+      const upcoming = EVENTS
+        .filter((ev) => new Date((ev.end || ev.start) + "T00:00:00") >= today)
+        .filter((ev) => costFilter === "all" || ev.cost === costFilter)
+        .sort((a, b) => a.start.localeCompare(b.start));
+
+      if (!upcoming.length) { grid.innerHTML = ""; empty.hidden = false; return; }
+      empty.hidden = true;
+
+      grid.innerHTML = upcoming.map((ev) => {
+        const s = new Date(ev.start + "T00:00:00");
+        const costClass = ev.cost === "Free" ? "cost free" : "cost";
+        return `
+          <a class="event-card" href="${esc(ev.link)}" target="_blank" rel="noopener">
+            <div class="event-date">
+              <span class="ed-month">${MONTHS[s.getMonth()]}</span>
+              <span class="ed-day">${s.getDate()}</span>
+            </div>
+            <div class="event-body">
+              <div class="event-name">${esc(ev.name)}</div>
+              <div class="event-meta">📅 ${esc(fmtDateRange(ev.start, ev.end))}</div>
+              <div class="event-meta">📍 ${esc(ev.venue)} · ${esc(ev.city)}</div>
+              <div class="event-meta">🏛 ${esc(ev.organizer)}</div>
+              <div class="event-tags">
+                <span class="${costClass}">${esc(ev.cost)}</span>
+                <span class="event-topic">${esc(ev.topic)}</span>
+              </div>
+            </div>
+          </a>`;
+      }).join("");
+    }
+
+    // Wire up the Free/Paid filter, then render — each guarded so a failure
+    // here can never block the news or patents sections below.
+    try {
+      document.querySelectorAll('.event-filters [data-cost]').forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll('.event-filters [data-cost]').forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          renderEvents(btn.dataset.cost);
+        });
+      });
+      renderEvents("all");
+    } catch (e) {
+      document.getElementById("eventGrid").innerHTML =
+        '<p class="message">Couldn\u2019t display events (' + esc(e.message) + ').</p>';
+    }
+
+    /* ================================================================
+       SHARED — fetch a URL through free CORS proxies (news + patents).
+       ================================================================ */
+    async function fetchTextViaProxies(targetUrl, mustContain) {
+      const attempts = [
+        { url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl), json: false },
+        { url: "https://corsproxy.io/?url=" + encodeURIComponent(targetUrl), json: false },
+        { url: "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl), json: true },
+      ];
+      for (const a of attempts) {
+        try {
+          const res = await fetch(a.url);
+          if (!res.ok) continue;
+          const body = a.json ? (await res.json()).contents : await res.text();
+          if (body && (!mustContain || body.indexOf(mustContain) !== -1)) return body;
+        } catch (e) { /* try the next proxy */ }
+      }
+      throw new Error("all proxies busy");
+    }
+
+    /* ================================================================
+       SECTION 2 — BREAKING NEWS  (Google News RSS via proxies)
+       ================================================================ */
+    const newsList = document.getElementById("newsList");
+
+    function timeAgo(dateStr) {
+      const then = new Date(dateStr), now = new Date();
+      const mins = Math.round((now - then) / 60000);
+      if (isNaN(mins)) return "";
+      if (mins < 60) return Math.max(1, mins) + "m ago";
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + "h ago";
+      return Math.round(hrs / 24) + "d ago";
+    }
+
+    function parseRss(xmlString) {
+      const xml = new DOMParser().parseFromString(xmlString, "text/xml");
+      return [...xml.querySelectorAll("item")].map((item) => {
+        const get = (tag) => item.querySelector(tag)?.textContent || "";
+        return { title: get("title"), link: get("link"), pubDate: get("pubDate"), source: get("source") };
+      });
+    }
+
+    async function loadNews(query) {
+      newsList.innerHTML = '<div class="message"><div class="spinner"></div>Loading headlines…</div>';
+      const googleRSS = "https://news.google.com/rss/search?q=" +
+        encodeURIComponent(query) + "&hl=en-US&gl=US&ceid=US:en";
+      try {
+        const xml = await fetchTextViaProxies(googleRSS, "<item");
+        const items = parseRss(xml).slice(0, 18);
+        if (!items.length) throw new Error("no items");
+        newsList.innerHTML = items.map((it) => {
+          let title = it.title, source = it.source || "";
+          const dash = title.lastIndexOf(" - ");
+          if (dash > 0) { if (!source) source = title.slice(dash + 3); title = title.slice(0, dash); }
+          return `
+            <a class="news-item" href="${esc(it.link)}" target="_blank" rel="noopener">
+              <div class="news-title">${esc(title)}</div>
+              <div class="news-meta">
+                <span class="news-source">${esc(source || "News")}</span>
+                <span class="news-time">${esc(timeAgo(it.pubDate))}</span>
+              </div>
+            </a>`;
+        }).join("");
+      } catch (err) {
+        const direct = "https://news.google.com/search?q=" + encodeURIComponent(query);
+        newsList.innerHTML =
+          '<div class="message">Couldn\u2019t load the live feed (proxies may be busy — try again shortly). ' +
+          '<a href="' + direct + '" target="_blank" rel="noopener">Open on Google News →</a></div>';
+      }
+    }
+
+    try {
+      document.querySelectorAll('#newsTopics [data-q]').forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll('#newsTopics [data-q]').forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          loadNews(btn.dataset.q);
+        });
+      });
+      loadNews(document.querySelector('#newsTopics [data-q]').dataset.q);
+    } catch (e) {
+      newsList.innerHTML = '<p class="message">News couldn\u2019t start (' + esc(e.message) + ').</p>';
+    }
+
+    /* ================================================================
+       SECTION 3 — LATEST PATENTS  (USPTO PatentsView, with fallback)
+       ================================================================ */
+    const patentList = document.getElementById("patentList");
+
+    async function loadPatents() {
+      patentList.innerHTML = '<div class="message"><div class="spinner"></div>Loading recent patents…</div>';
+      const q = JSON.stringify({ "_or": [ { "cpc_group_id": "A61K" }, { "cpc_group_id": "C12N" } ] });
+      const f = JSON.stringify(["patent_number", "patent_title", "patent_date", "assignee_organization"]);
+      const s = JSON.stringify([{ "patent_date": "desc" }]);
+      const o = JSON.stringify({ "per_page": 10 });
+      const api = "https://api.patentsview.org/patents/query?q=" + encodeURIComponent(q) +
+                  "&f=" + encodeURIComponent(f) + "&s=" + encodeURIComponent(s) + "&o=" + encodeURIComponent(o);
+      try {
+        let text = "";
+        try {
+          const r = await fetch(api);
+          if (r.ok) { const t = await r.text(); if (t.indexOf('"patents"') !== -1) text = t; }
+        } catch (e) { /* fall through to proxies */ }
+        if (!text) text = await fetchTextViaProxies(api, '"patents"');
+
+        const json = JSON.parse(text);
+        const patents = (json.patents || []).filter((p) => p && p.patent_title);
+        if (!patents.length) throw new Error("no patents");
+
+        patentList.innerHTML = patents.slice(0, 10).map((p) => {
+          const assignee = (p.assignees && p.assignees[0] && p.assignees[0].assignee_organization) || "Assignee not listed";
+          const num = p.patent_number || "";
+          const gpUrl = "https://patents.google.com/patent/US" + encodeURIComponent(num);
+          return `
+            <a class="news-item patent" href="${gpUrl}" target="_blank" rel="noopener">
+              <div class="news-title">${esc(cut(p.patent_title, 120))}</div>
+              <div class="news-meta">
+                <span class="patent-assignee">${esc(cut(assignee, 40))}</span>
+                <span class="news-time">Granted ${esc(p.patent_date || "")}</span>
+              </div>
+            </a>`;
+        }).join("");
+      } catch (err) {
+        const browse = "https://patents.google.com/?q=pharmaceutical&type=PATENT&sort=new";
+        patentList.innerHTML =
+          '<div class="message">Live patent feed is unavailable right now (USPTO PatentsView is migrating to a new data portal in 2026). ' +
+          '<a href="' + browse + '" target="_blank" rel="noopener">Browse the newest pharma patents on Google Patents →</a></div>';
+      }
+    }
+    try { loadPatents(); } catch (e) {
+      patentList.innerHTML = '<p class="message">Patents couldn\u2019t start (' + esc(e.message) + ').</p>';
+    }
+  </script>
+</body>
+</html>
