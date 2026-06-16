@@ -514,18 +514,33 @@ footer {
 .mom-row:hover .bar-fill { filter: brightness(1.12); }
 .mom-n { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); text-align: right; }
 
-/* Ensure momentum bars have a visible colored fill */
-.mom-row .bar-track {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  height: 12px;
-  overflow: hidden;
+/* ============ Homepage: tool cards, trust strip, bar fill fix ============ */
+.tool-card {
+  display: flex; gap: 14px; align-items: flex-start; padding: 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  text-decoration: none; color: var(--ink);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
-.mom-row .bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--p2);
-  border-radius: 999px;
-}
+.tool-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(14,22,38,0.10); }
+.tool-icon { flex: none; width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; }
+.tool-icon svg { width: 22px; height: 22px; }
+.ic-teal   { background: rgba(31,138,140,0.13); color: var(--p2); }
+.ic-indigo { background: rgba(71,86,196,0.13);  color: var(--p3); }
+.ic-green  { background: rgba(46,125,79,0.13);  color: var(--p4); }
+.ic-amber  { background: rgba(217,122,43,0.13); color: var(--p1); }
+.tool-title { font-size: 15.5px; margin-bottom: 3px; }
+.tool-q { color: var(--muted); font-size: 13px; line-height: 1.5; }
 
+.trust { display: flex; flex-wrap: wrap; gap: 12px; }
+.trust-item {
+  flex: 1; min-width: 220px; display: flex; gap: 12px; align-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;
+}
+.trust-ic { flex: none; width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--p2); }
+.trust-ic svg { width: 19px; height: 19px; }
+.trust-t { font-weight: 600; font-size: 13.5px; }
+.trust-d { color: var(--muted); font-size: 12px; }
+
+/* Make sure momentum bars always show a colored fill */
+.mom-row .bar-track { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; height: 12px; overflow: hidden; }
+.mom-row .bar-fill { display: block; height: 100%; background: var(--p2); border-radius: 999px; transition: width 0.5s ease; }
