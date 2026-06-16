@@ -513,3 +513,19 @@ footer {
 .mom-row:hover .mom-name { color: var(--p2); }
 .mom-row:hover .bar-fill { filter: brightness(1.12); }
 .mom-n { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); text-align: right; }
+
+/* Ensure momentum bars have a visible colored fill */
+.mom-row .bar-track {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+}
+.mom-row .bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--p2);
+  border-radius: 999px;
+}
+
