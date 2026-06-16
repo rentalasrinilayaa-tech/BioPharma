@@ -61,9 +61,14 @@
     const stripTags = (s) => String(s).replace(/<[^>]+>/g, "");
 
     const WORKER_URL = "https://biopharma-proxy.nilayaarentala.workers.dev";
-    // Broad life-sciences keyword net (OR-matched by Adzuna).
+    // Adzuna category that holds scientific / R&D / QA roles — this is what
+    // keeps the list to life-sciences work and excludes logistics, retail, etc.
+    const CATEGORY = "scientific-qa-jobs";
+    // Keyword bias toward biotech/pharma WITHIN that category.
     const WHAT = "biotech biotechnology pharmaceutical pharma biopharma clinical genomics " +
-                 "immunology oncology bioinformatics drug discovery";
+                 "immunology oncology bioinformatics therapeutic vaccine biologics";
+    // Belt-and-suspenders: drop anything that's clearly not a lab/science role.
+    const EXCLUDE = /\b(truck|driver|cdl|otr|warehouse|forklift|courier|dispatch|delivery|logistics|freight|hauler)\b/i;
 
     const msg = document.getElementById("message");
     const grid = document.getElementById("jobGrid");
@@ -91,23 +96,44 @@
       };
     }
 
+    function adzUrl(opts) {
+      let u = WORKER_URL + "?adzuna=1&max_days_old=30";
+      if (opts.category) u += "&category=" + encodeURIComponent(opts.category);
+      if (opts.what_or) u += "&what_or=" + encodeURIComponent(opts.what_or);
+      if (opts.where) u += "&where=" + encodeURIComponent(opts.where);
+      return u;
+    }
+
+    async function fetchAdz(opts) {
+      const r = await fetch(adzUrl(opts));
+      return r.json();
+    }
+
+    function clean(d) {
+      if (!d || d.error || !d.results) return [];
+      return d.results.map(normAdzuna)
+        .filter((j) => !EXCLUDE.test(j.title))
+        .sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+    }
+
     async function load(where) {
       msg.hidden = false;
       msg.innerHTML = '<div class="spinner"></div>Loading US biotech &amp; pharma roles…';
       grid.innerHTML = "";
-      const url = WORKER_URL + "?adzuna=1&max_days_old=30&what_or=" + encodeURIComponent(WHAT) +
-                  (where ? "&where=" + encodeURIComponent(where) : "");
       try {
-        const r = await fetch(url);
-        const d = await r.json();
-        if (d.error || !d.results) throw new Error(d.error || "no results");
-        JOBS = d.results.map(normAdzuna)
-          .sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
-        if (!JOBS.length) { msg.innerHTML = "No US biotech/pharma roles found in the last 30 days. Try a different location."; return; }
+        // First: scientific category + pharma keywords (most relevant).
+        let jobs = clean(await fetchAdz({ category: CATEGORY, what_or: WHAT, where: where }));
+        // If that's thin, relax to the scientific category alone (still no truck drivers).
+        if (jobs.length < 6) {
+          const relaxed = clean(await fetchAdz({ category: CATEGORY, where: where }));
+          if (relaxed.length > jobs.length) jobs = relaxed;
+        }
+        if (!jobs.length) throw new Error("no results");
+        JOBS = jobs;
         render();
       } catch (err) {
         msg.innerHTML = "Couldn't load live jobs (" + esc(err.message) + "). " +
-          "If you just set this up, confirm your Adzuna key is saved in the Worker. " +
+          "If you just updated the Worker, confirm your Adzuna key is still pasted in it. " +
           'Meanwhile, <a href="https://www.biospace.com/jobs/" target="_blank" rel="noopener">browse biotech jobs on BioSpace →</a>';
       }
     }
