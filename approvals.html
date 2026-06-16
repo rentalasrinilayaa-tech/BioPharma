@@ -25,8 +25,8 @@
     </nav>
     <div class="hero">
       <h1>Recent FDA approvals</h1>
-      <p>The newest original drug approvals on record at the US FDA, grouped by month and
-         refreshed live from the Drugs@FDA database every time you open this page.</p>
+      <p>The newest original drug approvals on record at the US FDA, charted by month and
+         listed in a sortable table — refreshed live from the Drugs@FDA database.</p>
     </div>
   </header>
 
@@ -43,7 +43,7 @@
     </p>
 
     <div id="message" class="message"><div class="spinner"></div>Loading the latest approvals…</div>
-    <div id="approvals" hidden></div>
+    <div id="dashboard" hidden></div>
   </main>
 
   <footer>
@@ -59,11 +59,13 @@
 
     const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     const msg = document.getElementById("message");
-    const wrap = document.getElementById("approvals");
-    let ALL = [];          // parsed approvals
-    let activeType = "all";
+    const dash = document.getElementById("dashboard");
 
-    // Decode the application-number prefix into a meaningful drug type.
+    let ALL = [];
+    let activeType = "all";
+    let sortKey = "date";
+    let sortDir = -1; // -1 = descending (newest / Z–A), 1 = ascending
+
     function classify(appNo) {
       if (/^BLA/i.test(appNo)) return { label: "Biologic", cls: "biologic" };
       if (/^ANDA/i.test(appNo)) return { label: "Generic", cls: "generic" };
@@ -71,7 +73,6 @@
       return { label: "Other", cls: "other" };
     }
 
-    // Pull the ORIG + approved submission (the original approval) and its date.
     function parseApp(res) {
       const sub = (res.submissions || []).find(
         (s) => s.submission_type === "ORIG" && s.submission_status === "AP" && s.submission_status_date
@@ -84,7 +85,7 @@
         generic: (res.openfda && res.openfda.generic_name && res.openfda.generic_name[0]) || "",
         sponsor: res.sponsor_name || "Unknown sponsor",
         form: product.dosage_form || "",
-        dateRaw: sub.submission_status_date,   // YYYYMMDD
+        dateRaw: sub.submission_status_date,
         appNo: appNo,
         type: classify(appNo),
       };
@@ -98,7 +99,6 @@
 
     async function load() {
       try {
-        // Only the last ~2 years, original approvals, so the feed is genuinely recent.
         const thisYear = new Date().getFullYear();
         const startYear = thisYear - 1;
         const search = `submissions.submission_type:"ORIG" AND submissions.submission_status:"AP" ` +
@@ -111,14 +111,11 @@
         const d = await r.json();
 
         const cutoff = "" + startYear + "0101";
-        // Parse, keep only those whose ORIGINAL approval is within our window,
-        // then sort newest-first OURSELVES (don't trust the API's nested sort).
         const seen = new Set();
         ALL = (d.results || [])
           .map(parseApp)
           .filter((a) => a && a.dateRaw >= cutoff)
-          .filter((a) => { if (seen.has(a.appNo)) return false; seen.add(a.appNo); return true; })
-          .sort((a, b) => b.dateRaw.localeCompare(a.dateRaw));
+          .filter((a) => { if (seen.has(a.appNo)) return false; seen.add(a.appNo); return true; });
 
         if (!ALL.length) throw new Error("No recent approvals returned.");
         render();
@@ -128,10 +125,23 @@
       }
     }
 
-    function render() {
-      const list = activeType === "all" ? ALL : ALL.filter((a) => a.type.cls === activeType);
+    function getList() {
+      let list = activeType === "all" ? ALL.slice() : ALL.filter((a) => a.type.cls === activeType);
+      list.sort((a, b) => {
+        let av, bv;
+        if (sortKey === "drug") { av = a.brand.toLowerCase(); bv = b.brand.toLowerCase(); }
+        else if (sortKey === "company") { av = a.sponsor.toLowerCase(); bv = b.sponsor.toLowerCase(); }
+        else if (sortKey === "type") { av = a.type.label; bv = b.type.label; }
+        else { av = a.dateRaw; bv = b.dateRaw; }
+        if (av < bv) return -1 * sortDir;
+        if (av > bv) return 1 * sortDir;
+        return 0;
+      });
+      return list;
+    }
 
-      // Update the count on each filter chip.
+    function render() {
+      // Update filter-chip counts.
       const counts = { all: ALL.length, biologic: 0, brand: 0, generic: 0 };
       ALL.forEach((a) => { if (counts[a.type.cls] !== undefined) counts[a.type.cls]++; });
       document.querySelectorAll("#typeFilters [data-type]").forEach((btn) => {
@@ -140,42 +150,92 @@
         btn.textContent = base + " (" + (counts[t] || 0) + ")";
       });
 
-      if (!list.length) {
-        wrap.hidden = false; msg.hidden = true;
-        wrap.innerHTML = '<p class="message">No approvals of this type in the current window.</p>';
-        return;
-      }
+      const list = getList();
+      msg.hidden = true;
+      dash.hidden = false;
+      dash.innerHTML = chartHTML(list) + tableHTML(list);
+      wireSort();
+    }
 
-      // Group by "YYYYMM" so we can print month headers.
-      const groups = {};
-      for (const a of list) {
-        const key = a.dateRaw.slice(0, 6);
-        (groups[key] = groups[key] || []).push(a);
-      }
-      const keys = Object.keys(groups).sort((x, y) => y.localeCompare(x)); // newest month first
+    // ---- Chart: approvals per month, stacked by type ----
+    function chartHTML(list) {
+      if (!list.length) return '<p class="message">No approvals of this type in the window.</p>';
+      const byMonth = {};
+      list.forEach((a) => {
+        const k = a.dateRaw.slice(0, 6);
+        byMonth[k] = byMonth[k] || { biologic: 0, brand: 0, generic: 0, other: 0, total: 0 };
+        byMonth[k][a.type.cls]++; byMonth[k].total++;
+      });
+      const keys = Object.keys(byMonth).sort(); // oldest → newest, left to right
+      const max = Math.max(1, ...keys.map((k) => byMonth[k].total));
 
-      wrap.innerHTML = keys.map((key) => {
-        const label = MONTHS[+key.slice(4, 6) - 1] + " " + key.slice(0, 4);
-        const rows = groups[key].map((a) => `
-          <div class="appr-row">
-            <span class="appr-type ${a.type.cls}">${a.type.label}</span>
-            <div class="appr-main">
-              <div class="appr-drug">${esc(a.brand)}${a.generic ? ` <span class="appr-generic">(${esc(cut(a.generic, 50))})</span>` : ""}</div>
-              <div class="appr-sub">${esc(cut(a.sponsor, 50))}${a.form ? " · " + esc(cut(a.form, 36)) : ""}</div>
+      const bars = keys.map((k) => {
+        const m = byMonth[k];
+        const pct = (t) => (m[t] / max * 100);
+        const lbl = MONTHS[+k.slice(4, 6) - 1].slice(0, 3) + " " + k.slice(0, 4);
+        return `
+          <div class="cbar" title="${esc(lbl)}: ${m.total} approvals">
+            <div class="cbar-n">${m.total}</div>
+            <div class="cbar-stack">
+              <div class="cseg generic" style="height:${pct("generic")}%"></div>
+              <div class="cseg brand" style="height:${pct("brand")}%"></div>
+              <div class="cseg biologic" style="height:${pct("biologic")}%"></div>
             </div>
-            <div class="appr-meta">
-              <span class="appr-date">${esc(fmtDate(a.dateRaw))}</span>
-              <span class="appr-app">${esc(a.appNo)}</span>
-            </div>
-          </div>`).join("");
-        return `<section class="appr-group">
-                  <h2 class="appr-month">${esc(label)} <span class="appr-month-n">${groups[key].length}</span></h2>
-                  ${rows}
-                </section>`;
+            <div class="cbar-label">${esc(MONTHS[+k.slice(4, 6) - 1].slice(0, 3))}<br>${k.slice(0, 4)}</div>
+          </div>`;
       }).join("");
 
-      msg.hidden = true;
-      wrap.hidden = false;
+      return `
+        <div class="panel" style="margin-top:14px">
+          <h2 class="section-title" style="margin-top:0">Approvals by month</h2>
+          <div class="appr-chart">${bars}</div>
+          <div class="chart-legend">
+            <span><i class="lg-dot" style="background:var(--p2)"></i> Biologic</span>
+            <span><i class="lg-dot" style="background:var(--p3)"></i> Brand-name</span>
+            <span><i class="lg-dot" style="background:var(--p1)"></i> Generic</span>
+          </div>
+        </div>`;
+    }
+
+    // ---- Sortable table ----
+    function arrow(key) { return sortKey === key ? (sortDir === -1 ? " ▼" : " ▲") : ""; }
+
+    function tableHTML(list) {
+      const rows = list.map((a) => `
+        <tr>
+          <td><span class="appr-type ${a.type.cls}">${a.type.label}</span></td>
+          <td><span class="appr-drug">${esc(a.brand)}</span>${a.generic ? ` <span class="appr-generic">${esc(cut(a.generic, 46))}</span>` : ""}</td>
+          <td>${esc(cut(a.sponsor, 40))}</td>
+          <td>${esc(cut(a.form, 34))}</td>
+          <td class="nowrap appr-date">${esc(fmtDate(a.dateRaw))}</td>
+          <td class="nowrap appr-app">${esc(a.appNo)}</td>
+        </tr>`).join("");
+
+      return `
+        <div class="appr-table-wrap">
+          <table class="appr-table">
+            <thead><tr>
+              <th data-sort="type">Type${arrow("type")}</th>
+              <th data-sort="drug">Drug${arrow("drug")}</th>
+              <th data-sort="company">Company${arrow("company")}</th>
+              <th>Form</th>
+              <th data-sort="date">Approved${arrow("date")}</th>
+              <th>App #</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function wireSort() {
+      dash.querySelectorAll(".appr-table th[data-sort]").forEach((th) => {
+        th.addEventListener("click", () => {
+          const key = th.dataset.sort;
+          if (sortKey === key) { sortDir *= -1; }
+          else { sortKey = key; sortDir = (key === "date") ? -1 : 1; }
+          render();
+        });
+      });
     }
 
     document.querySelectorAll("#typeFilters [data-type]").forEach((btn) => {
