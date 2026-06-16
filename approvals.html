@@ -97,6 +97,19 @@
       return m + " " + (+yyyymmdd.slice(6, 8)) + ", " + yyyymmdd.slice(0, 4);
     }
 
+    // Build the official Drugs@FDA page URL from an application number.
+    // The site expects the numeric part and a type prefix, e.g.
+    // application number "NDA218347" → applno=218347, type=NDA.
+    function fdaUrl(appNo) {
+      const m = String(appNo).match(/^([A-Za-z]+)0*([0-9]+)$/);
+      if (!m) return "https://www.accessdata.fda.gov/scripts/cder/daf/";
+      const type = m[1].toUpperCase();
+      const num = m[2];
+      return "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm" +
+             "?event=overview.process&ApplNo=" + encodeURIComponent(num) +
+             "&ApplType=" + encodeURIComponent(type);
+    }
+
     async function load() {
       try {
         const thisYear = new Date().getFullYear();
@@ -208,7 +221,7 @@
           <td>${esc(cut(a.sponsor, 40))}</td>
           <td>${esc(cut(a.form, 34))}</td>
           <td class="nowrap appr-date">${esc(fmtDate(a.dateRaw))}</td>
-          <td class="nowrap appr-app">${esc(a.appNo)}</td>
+          <td class="nowrap"><a class="appr-app" href="${esc(fdaUrl(a.appNo))}" target="_blank" rel="noopener" title="View official FDA record">${esc(a.appNo)} ↗</a></td>
         </tr>`).join("");
 
       return `
