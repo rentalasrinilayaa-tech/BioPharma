@@ -32,42 +32,38 @@
   </header>
 
   <main class="wrap">
-    <!-- Three LIVE, domain-relevant numbers. Each starts with a sensible
-         fallback already in the HTML, so the page never looks broken even
-         if a data source is slow or down. JS upgrades them to live values. -->
     <div class="stats">
       <div class="stat"><div class="num" id="statStudies">520k+</div><div class="lbl">Studies registered worldwide</div></div>
       <div class="stat"><div class="num" id="statRecruiting">65k+</div><div class="lbl">Trials recruiting now</div></div>
       <div class="stat"><div class="num" id="statApprovals">—</div><div class="lbl">FDA approvals this year</div></div>
     </div>
 
-    <h2 class="section-title">Explore</h2>
-    <div class="grid cols-3">
-      <a class="feature" href="pipeline.html">
-        <div class="kicker">Clinical trials</div>
-        <h3>Pipeline Tracker</h3>
-        <p>Search any disease or company and watch its trials flow through Phase 1 → 2 → 3 → approval.</p>
-      </a>
-      <a class="feature" href="stocks.html">
-        <div class="kicker">Markets</div>
-        <h3>Industry Stocks</h3>
-        <p>The world's ten biggest pharma &amp; biotech names with live prices and daily moves.</p>
-      </a>
-      <a class="feature" href="drugs.html">
-        <div class="kicker">Drug safety &amp; reach</div>
-        <h3>Drug Explorer</h3>
-        <p>Reported adverse events for any drug, plus a world map of where it's being tested.</p>
-      </a>
-      <a class="feature" href="approvals.html">
-        <div class="kicker">Regulatory</div>
-        <h3>Recent FDA Approvals</h3>
-        <p>A rolling feed of the newest drug approvals straight from FDA records.</p>
-      </a>
-      <a class="feature" href="learn.html">
-        <div class="kicker">Education</div>
-        <h3>Learn the Basics</h3>
-        <p>What trial phases mean, how to read an NCT number, and what adverse-event data really tells you.</p>
-      </a>
+    <h2 class="section-title">The industry at a glance</h2>
+    <div class="grid cols-2" style="align-items:start">
+
+      <!-- LEFT: attrition funnel -->
+      <div class="panel">
+        <h3 style="font-size:16px;margin-bottom:4px">The drug-development funnel</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">
+          Active trials at each phase. Every stage has fewer than the last — a glimpse of how
+          most candidates fall away on the road to approval.
+        </p>
+        <div id="funnel"><div class="message"><div class="spinner"></div>Loading…</div></div>
+        <p style="color:var(--muted);font-size:11.5px;margin-top:12px">
+          Counts interventional trials by phase on ClinicalTrials.gov (trials, not unique drugs).
+        </p>
+      </div>
+
+      <!-- RIGHT: momentum -->
+      <div class="panel">
+        <h3 style="font-size:16px;margin-bottom:4px">Where research is most active now</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">
+          Currently recruiting trials by disease area. Click any bar to explore it in the
+          Pipeline Tracker.
+        </p>
+        <div id="momentum"><div class="message"><div class="spinner"></div>Loading…</div></div>
+      </div>
+
     </div>
   </main>
 
@@ -80,32 +76,37 @@
 
   <script src="app.js"></script>
   <script>
-    // Helper: format a big number as "520k+" style for compact display.
+    const esc = (typeof escapeHTML === "function") ? escapeHTML : (s) =>
+      String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
     function compact(n) {
       if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M+";
-      if (n >= 1000)    return Math.floor(n / 1000) + "k+";
+      if (n >= 1000) return Math.floor(n / 1000) + "k+";
       return String(n);
     }
 
-    // Each stat fetches a real number but ALWAYS keeps its fallback if the
-    // request fails — so a visitor never sees a broken "…" placeholder.
+    // Generic helper: total count of studies matching a set of query params.
+    async function countStudies(params) {
+      const usp = new URLSearchParams(params);
+      usp.set("countTotal", "true");
+      usp.set("pageSize", "1");
+      const r = await fetch("https://clinicaltrials.gov/api/v2/studies?" + usp.toString());
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      return typeof d.totalCount === "number" ? d.totalCount : null;
+    }
+
+    /* ---------- Top stats ---------- */
     (async () => {
-      // 1) Total studies registered worldwide
       try {
         const r = await fetch("https://clinicaltrials.gov/api/v2/stats/size");
         const d = await r.json();
         if (d.totalStudies) document.getElementById("statStudies").textContent = compact(d.totalStudies);
-      } catch (e) { /* keep fallback */ }
-
-      // 2) Trials recruiting right now (countTotal returns the full match count)
+      } catch (e) {}
       try {
-        const r = await fetch("https://clinicaltrials.gov/api/v2/studies?" +
-          "filter.overallStatus=RECRUITING&countTotal=true&pageSize=1");
-        const d = await r.json();
-        if (d.totalCount) document.getElementById("statRecruiting").textContent = compact(d.totalCount);
-      } catch (e) { /* keep fallback */ }
-
-      // 3) FDA approvals so far this year
+        const n = await countStudies({ "filter.overallStatus": "RECRUITING" });
+        if (n) document.getElementById("statRecruiting").textContent = compact(n);
+      } catch (e) {}
       try {
         const year = new Date().getFullYear();
         const url = "https://api.fda.gov/drug/drugsfda.json?search=" +
@@ -113,10 +114,80 @@
           "&limit=1";
         const r = await fetch(url);
         const d = await r.json();
-        const total = d.meta?.results?.total;
+        const total = d.meta && d.meta.results && d.meta.results.total;
         document.getElementById("statApprovals").textContent = total ? total.toLocaleString() : "—";
+      } catch (e) { document.getElementById("statApprovals").textContent = "—"; }
+    })();
+
+    /* ---------- Attrition funnel ---------- */
+    (async () => {
+      const el = document.getElementById("funnel");
+      const phases = [
+        { label: "Phase 1", expr: "PHASE1", cls: "p1" },
+        { label: "Phase 2", expr: "PHASE2", cls: "p2" },
+        { label: "Phase 3", expr: "PHASE3", cls: "p3" },
+        { label: "Phase 4", expr: "PHASE4", cls: "p4" },
+      ];
+      try {
+        const counts = await Promise.all(phases.map((p) =>
+          countStudies({ "filter.advanced": "AREA[Phase]" + p.expr }).catch(() => null)
+        ));
+        const valid = counts.filter((c) => typeof c === "number");
+        if (!valid.length) throw new Error("no data");
+        const max = Math.max(...valid);
+
+        el.innerHTML = phases.map((p, i) => {
+          const c = counts[i];
+          const pct = (typeof c === "number" && max) ? Math.max(6, (c / max) * 100) : 6;
+          return `
+            <div class="funnel-row">
+              <span class="funnel-label">${p.label}</span>
+              <span class="funnel-track">
+                <span class="funnel-bar ${p.cls}" style="width:${pct}%">${c != null ? c.toLocaleString() : "—"}</span>
+              </span>
+            </div>`;
+        }).join("");
       } catch (e) {
-        document.getElementById("statApprovals").textContent = "—";
+        el.innerHTML = '<p class="message" style="padding:20px">Couldn\u2019t load phase data right now — refresh in a moment.</p>';
+      }
+    })();
+
+    /* ---------- Momentum: recruiting trials by area ---------- */
+    (async () => {
+      const el = document.getElementById("momentum");
+      const areas = [
+        { name: "Cancer", q: "cancer" },
+        { name: "Diabetes", q: "diabetes" },
+        { name: "Obesity", q: "obesity" },
+        { name: "Alzheimer's", q: "alzheimer" },
+        { name: "Depression", q: "depression" },
+        { name: "Asthma", q: "asthma" },
+        { name: "Heart disease", q: "heart disease" },
+        { name: "HIV", q: "HIV" },
+      ];
+      try {
+        const counts = await Promise.all(areas.map((a) =>
+          countStudies({ "query.cond": a.q, "filter.overallStatus": "RECRUITING" }).catch(() => null)
+        ));
+        const rows = areas
+          .map((a, i) => ({ ...a, n: counts[i] }))
+          .filter((a) => typeof a.n === "number")
+          .sort((a, b) => b.n - a.n);
+        if (!rows.length) throw new Error("no data");
+        const max = rows[0].n || 1;
+
+        el.innerHTML = rows.map((a) => {
+          const pct = Math.max(3, (a.n / max) * 100);
+          const href = "pipeline.html?q=" + encodeURIComponent(a.q) + "&type=cond&status=RECRUITING";
+          return `
+            <a class="mom-row" href="${href}" title="Explore ${esc(a.name)} trials">
+              <span class="mom-name">${esc(a.name)}</span>
+              <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+              <span class="mom-n">${a.n.toLocaleString()}</span>
+            </a>`;
+        }).join("");
+      } catch (e) {
+        el.innerHTML = '<p class="message" style="padding:20px">Couldn\u2019t load activity data right now — refresh in a moment.</p>';
       }
     })();
   </script>

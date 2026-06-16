@@ -487,3 +487,29 @@ footer {
 .appr-table .appr-type { display: inline-block; padding: 3px 10px; font-size: 11px; }
 .appr-table a.appr-app { color: var(--p2); text-decoration: none; }
 .appr-table a.appr-app:hover { text-decoration: underline; }
+
+/* ============ Homepage: funnel + momentum ============ */
+.funnel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.funnel-label { width: 64px; text-align: right; font-weight: 600; font-size: 13px; flex: none; color: var(--ink); }
+.funnel-track { flex: 1; display: flex; justify-content: center; }
+.funnel-bar {
+  height: 34px; border-radius: 6px; min-width: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 12.5px;
+  font-family: "IBM Plex Mono", monospace;
+  transition: width 0.5s ease;
+}
+.funnel-bar.p1 { background: var(--p1); }
+.funnel-bar.p2 { background: var(--p2); }
+.funnel-bar.p3 { background: var(--p3); }
+.funnel-bar.p4 { background: var(--p4); }
+
+.mom-row {
+  display: grid; grid-template-columns: 110px 1fr 64px; gap: 10px;
+  align-items: center; padding: 6px 0; text-decoration: none; color: var(--ink);
+}
+.mom-row + .mom-row { border-top: 1px solid var(--line); }
+.mom-name { font-size: 13.5px; font-weight: 500; }
+.mom-row:hover .mom-name { color: var(--p2); }
+.mom-row:hover .bar-fill { filter: brightness(1.12); }
+.mom-n { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); text-align: right; }
