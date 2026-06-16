@@ -25,28 +25,31 @@
       <a href="learn.html">Learn</a>
     </nav>
     <div class="hero">
-      <h1>Open jobs in biotech &amp; pharma</h1>
-      <p>Live openings pulled from public job-board APIs and filtered to life-sciences roles.
-         Click any posting to apply on the original site.</p>
+      <h1>Open jobs in US biotech &amp; pharma</h1>
+      <p>Live US openings from the Adzuna job network, focused on life-sciences roles and
+         posted within the last 30 days. Click any posting to apply on the source site.</p>
     </div>
   </header>
 
   <main class="wrap">
     <div class="jobs-toolbar">
       <input id="jobSearch" type="text" placeholder="Filter by title, company, or skill…" aria-label="Filter jobs"
-             style="font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);flex:1;min-width:200px" />
+             style="font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);flex:2;min-width:180px" />
+      <input id="jobWhere" type="text" placeholder="City or state (e.g. Boston)…" aria-label="Location"
+             style="font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);flex:1;min-width:140px" />
+      <button class="primary" id="jobGo">Search</button>
       <button class="topic-chip active" id="remoteToggle" data-on="false">Remote only: off</button>
     </div>
     <p style="color:var(--muted);font-size:13px;margin:8px 4px 0" id="jobCount"></p>
 
-    <div id="message" class="message"><div class="spinner"></div>Loading open positions…</div>
+    <div id="message" class="message"><div class="spinner"></div>Loading US biotech &amp; pharma roles…</div>
     <div class="grid cols-2" id="jobGrid" style="margin-top:12px"></div>
   </main>
 
   <footer>
     <div class="wrap">
-      Jobs via the Arbeitnow and Remotive public APIs (tech &amp; remote-leaning; not exhaustive
-      pharma coverage). Postings link to the original employer site. Not affiliated with any employer.
+      Jobs via the Adzuna API (US listings, last 30 days). Postings link to the original site.
+      Not affiliated with any employer. Not all biotech roles appear on every board.
     </div>
   </footer>
 
@@ -55,101 +58,57 @@
     const esc = (typeof escapeHTML === "function") ? escapeHTML : (s) =>
       String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const cut = (typeof shorten === "function") ? shorten : (s, n) => { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+    const stripTags = (s) => String(s).replace(/<[^>]+>/g, "");
 
-    // ⬇ Your Cloudflare Worker (already set). Falls back to public proxies.
     const WORKER_URL = "https://biopharma-proxy.nilayaarentala.workers.dev";
+    // Broad life-sciences keyword net (OR-matched by Adzuna).
+    const WHAT = "biotech biotechnology pharmaceutical pharma biopharma clinical genomics " +
+                 "immunology oncology bioinformatics drug discovery";
 
     const msg = document.getElementById("message");
     const grid = document.getElementById("jobGrid");
     const countEl = document.getElementById("jobCount");
     let JOBS = [];
 
-    // Fetch a URL as JSON through the Worker, then direct, then public proxies.
-    async function fetchJSON(targetUrl) {
-      const urls = [];
-      if (WORKER_URL.indexOf("workers.dev") !== -1 && WORKER_URL.indexOf("YOUR-SUBDOMAIN") === -1) {
-        urls.push(WORKER_URL + "?url=" + encodeURIComponent(targetUrl));
+    function normAdzuna(j) {
+      const loc = (j.location && j.location.display_name) || "United States";
+      const title = stripTags(j.title || "Role");
+      const remote = /remote/i.test(title + " " + loc);
+      let salary = "";
+      if (j.salary_min) {
+        const f = (n) => "$" + Math.round(n / 1000) + "k";
+        salary = (j.salary_max && j.salary_max !== j.salary_min)
+          ? f(j.salary_min) + "–" + f(j.salary_max) : f(j.salary_min);
       }
-      urls.push(targetUrl); // direct (works if the API allows CORS)
-      urls.push("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
-      urls.push("https://corsproxy.io/?url=" + encodeURIComponent(targetUrl));
-      for (const u of urls) {
-        try {
-          const r = await fetch(u);
-          if (!r.ok) continue;
-          const t = await r.text();
-          const j = JSON.parse(t);
-          return j;
-        } catch (e) { /* next */ }
-      }
-      throw new Error("all sources failed");
-    }
-
-    // Keywords that mark a posting as life-sciences relevant.
-    const KW = ["biotech","pharma","clinical","bioinformatic","genomic","life scien","therapeut",
-                "drug","biolog","molecular","oncolog","vaccine","diagnostic","medical","health",
-                "immunolog","cell ","gene ","regulatory affairs","cro "];
-    function relevant(job) {
-      const s = (job.title + " " + (job.tags || []).join(" ") + " " + job.company).toLowerCase();
-      return KW.some((k) => s.indexOf(k) !== -1);
-    }
-
-    function normRemotive(j) {
       return {
-        title: j.title || "Untitled role",
-        company: j.company_name || "Company",
-        location: j.candidate_required_location || "Remote",
-        remote: true,
-        date: j.publication_date ? new Date(j.publication_date) : null,
-        url: j.url || "#",
-        tags: (j.tags || []).slice(0, 3),
-        source: "Remotive",
-      };
-    }
-    function normArbeitnow(j) {
-      return {
-        title: j.title || "Untitled role",
-        company: j.company_name || "Company",
-        location: j.location || "—",
-        remote: !!j.remote,
-        date: j.created_at ? new Date(j.created_at * 1000) : null,
-        url: j.url || "#",
-        tags: (j.tags || []).slice(0, 3),
-        source: "Arbeitnow",
+        title,
+        company: (j.company && j.company.display_name) || "Company",
+        location: loc, remote,
+        date: j.created ? new Date(j.created) : null,
+        url: j.redirect_url || "#",
+        tags: (j.category && j.category.label) ? [j.category.label] : [],
+        salary, source: "Adzuna",
       };
     }
 
-    async function load() {
-      const tasks = [];
-      // Remotive: a few targeted searches (server-side filtered, so already relevant).
-      ["biotech", "pharmaceutical", "clinical", "bioinformatics"].forEach((term) => {
-        tasks.push(
-          fetchJSON("https://remotive.com/api/remote-jobs?search=" + encodeURIComponent(term) + "&limit=30")
-            .then((d) => (d.jobs || []).map(normRemotive)).catch(() => [])
-        );
-      });
-      // Arbeitnow: one page, filtered client-side for relevance.
-      tasks.push(
-        fetchJSON("https://www.arbeitnow.com/api/job-board-api")
-          .then((d) => (d.data || []).map(normArbeitnow).filter(relevant)).catch(() => [])
-      );
-
+    async function load(where) {
+      msg.hidden = false;
+      msg.innerHTML = '<div class="spinner"></div>Loading US biotech &amp; pharma roles…';
+      grid.innerHTML = "";
+      const url = WORKER_URL + "?adzuna=1&max_days_old=30&what_or=" + encodeURIComponent(WHAT) +
+                  (where ? "&where=" + encodeURIComponent(where) : "");
       try {
-        const results = await Promise.all(tasks);
-        let all = [].concat.apply([], results);
-        // De-duplicate by application URL.
-        const seen = new Set();
-        all = all.filter((j) => { const k = j.url || (j.title + j.company); if (seen.has(k)) return false; seen.add(k); return true; });
-        // Safety relevance pass + valid-date sort (newest first).
-        all = all.filter(relevant);
-        all.sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
-        JOBS = all.slice(0, 80);
-
-        if (!JOBS.length) throw new Error("no jobs");
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.error || !d.results) throw new Error(d.error || "no results");
+        JOBS = d.results.map(normAdzuna)
+          .sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+        if (!JOBS.length) { msg.innerHTML = "No US biotech/pharma roles found in the last 30 days. Try a different location."; return; }
         render();
       } catch (err) {
-        msg.innerHTML = "Couldn't load live jobs right now. " +
-          '<a href="https://www.biospace.com/jobs/" target="_blank" rel="noopener">Browse biotech jobs on BioSpace →</a>';
+        msg.innerHTML = "Couldn't load live jobs (" + esc(err.message) + "). " +
+          "If you just set this up, confirm your Adzuna key is saved in the Worker. " +
+          'Meanwhile, <a href="https://www.biospace.com/jobs/" target="_blank" rel="noopener">browse biotech jobs on BioSpace →</a>';
       }
     }
 
@@ -166,37 +125,36 @@
       let list = JOBS.slice();
       if (remoteOnly) list = list.filter((j) => j.remote);
       if (q) list = list.filter((j) =>
-        (j.title + " " + j.company + " " + (j.tags || []).join(" ")).toLowerCase().indexOf(q) !== -1
-      );
+        (j.title + " " + j.company + " " + j.location + " " + (j.tags || []).join(" ")).toLowerCase().indexOf(q) !== -1);
 
       countEl.textContent = list.length + " open position" + (list.length === 1 ? "" : "s") +
         " shown" + (q || remoteOnly ? " (filtered)" : "") + ".";
 
-      if (!list.length) {
-        grid.innerHTML = '<p class="message">No jobs match your filter. Try a broader term.</p>';
-        msg.hidden = true; return;
-      }
+      msg.hidden = true;
+      if (!list.length) { grid.innerHTML = '<p class="message">No jobs match your filter. Try a broader term.</p>'; return; }
 
       grid.innerHTML = list.map((j) => {
-        const tags = (j.tags || []).filter(Boolean).map((t) => `<span class="job-tag">${esc(cut(t, 22))}</span>`).join("");
+        const tags = [];
+        if (j.salary) tags.push(`<span class="job-tag job-salary">${esc(j.salary)}</span>`);
+        (j.tags || []).forEach((t) => { if (t) tags.push(`<span class="job-tag">${esc(cut(t, 26))}</span>`); });
         return `
           <a class="job-card" href="${esc(j.url)}" target="_blank" rel="noopener">
             <div class="job-top">
               <span class="job-title">${esc(cut(j.title, 80))}</span>
               ${j.remote ? '<span class="job-remote">Remote</span>' : ""}
             </div>
-            <div class="job-company">${esc(cut(j.company, 40))} <span class="job-loc">· ${esc(cut(j.location, 38))}</span></div>
+            <div class="job-company">${esc(cut(j.company, 40))} <span class="job-loc">· ${esc(cut(j.location, 40))}</span></div>
             <div class="job-meta">
-              <span class="job-tags">${tags}</span>
+              <span class="job-tags">${tags.join("")}</span>
               <span class="job-date">${esc(fmtPosted(j.date))}</span>
             </div>
           </a>`;
       }).join("");
-
-      msg.hidden = true;
     }
 
     document.getElementById("jobSearch").addEventListener("input", () => { if (JOBS.length) render(); });
+    document.getElementById("jobGo").addEventListener("click", () => load(document.getElementById("jobWhere").value.trim()));
+    document.getElementById("jobWhere").addEventListener("keydown", (e) => { if (e.key === "Enter") load(document.getElementById("jobWhere").value.trim()); });
     document.getElementById("remoteToggle").addEventListener("click", () => {
       const btn = document.getElementById("remoteToggle");
       const on = btn.dataset.on === "true";
@@ -206,7 +164,7 @@
       if (JOBS.length) render();
     });
 
-    load();
+    load("");
   </script>
 </body>
 </html>
