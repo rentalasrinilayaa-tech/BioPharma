@@ -20,83 +20,174 @@
       <a href="pipeline.html">Pipeline Tracker</a>
       <a href="drugs.html">Drug Explorer</a>
       <a href="approvals.html">FDA Approvals</a>
-       <a href="news.html">News &amp; Events</a>
+      <a href="news.html">News &amp; Events</a>
       <a href="learn.html">Learn</a>
     </nav>
     <div class="hero">
       <h1>Recent FDA approvals</h1>
-      <p>The newest original drug approvals on record at the US FDA, refreshed live
-         from the Drugs@FDA database every time you open this page.</p>
+      <p>The newest original drug approvals on record at the US FDA, grouped by month and
+         refreshed live from the Drugs@FDA database every time you open this page.</p>
     </div>
   </header>
 
   <main class="wrap">
+    <div class="event-filters" id="typeFilters" style="margin-top:4px">
+      <button class="topic-chip active" data-type="all">All</button>
+      <button class="topic-chip" data-type="biologic">Biologics</button>
+      <button class="topic-chip" data-type="brand">Brand-name</button>
+      <button class="topic-chip" data-type="generic">Generics</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin:8px 4px 0">
+      <strong>Type key:</strong> Biologic = BLA (made from living cells — the core of modern biotech) ·
+      Brand-name = NDA (new small-molecule drug) · Generic = ANDA (copy of an off-patent drug).
+    </p>
+
     <div id="message" class="message"><div class="spinner"></div>Loading the latest approvals…</div>
-    <div class="grid cols-2" id="feed"></div>
+    <div id="approvals" hidden></div>
   </main>
 
   <footer>
-    <div class="wrap">Data: openFDA Drugs@FDA dataset. US approvals only — other countries'
-    regulators (EMA, PMDA, etc.) publish separately. Not medical advice.</div>
+    <div class="wrap">Data: openFDA Drugs@FDA dataset. US approvals only — other regulators
+    (EMA, PMDA, etc.) publish separately. Not medical advice.</div>
   </footer>
 
   <script src="app.js"></script>
   <script>
+    const esc = (typeof escapeHTML === "function") ? escapeHTML : (s) =>
+      String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const cut = (typeof shorten === "function") ? shorten : (s, n) => { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     const msg = document.getElementById("message");
-    const feed = document.getElementById("feed");
+    const wrap = document.getElementById("approvals");
+    let ALL = [];          // parsed approvals
+    let activeType = "all";
 
-    (async () => {
-      try {
-        // search: original applications (ORIG) that were approved (AP),
-        // sorted by approval date, newest first.
-        const url = "https://api.fda.gov/drug/drugsfda.json?" +
-          'search=submissions.submission_type:"ORIG"+AND+submissions.submission_status:"AP"' +
-          "&sort=submissions.submission_status_date:desc&limit=30";
-        const r = await fetch(url);
-        if (!r.ok) throw new Error("API returned " + r.status);
-        const d = await r.json();
-        const items = (d.results || []).map(parseApp).filter(Boolean);
-        if (!items.length) throw new Error("No approval records returned.");
+    // Decode the application-number prefix into a meaningful drug type.
+    function classify(appNo) {
+      if (/^BLA/i.test(appNo)) return { label: "Biologic", cls: "biologic" };
+      if (/^ANDA/i.test(appNo)) return { label: "Generic", cls: "generic" };
+      if (/^NDA/i.test(appNo)) return { label: "Brand-name", cls: "brand" };
+      return { label: "Other", cls: "other" };
+    }
 
-        feed.innerHTML = items.map((it) => `
-          <div class="card" style="border-left-color: var(--p4)">
-            <div class="title">${escapeHTML(it.brand)}${it.generic ? ` <span style="color:var(--muted);font-weight:400">(${escapeHTML(shorten(it.generic, 60))})</span>` : ""}</div>
-            <div class="sub">${escapeHTML(it.sponsor)}${it.form ? " · " + escapeHTML(shorten(it.form, 40)) : ""}</div>
-            <div class="meta">
-              <span class="status recruiting">Approved ${escapeHTML(it.date)}</span>
-              <span class="mono">${escapeHTML(it.appNo)}</span>
-            </div>
-          </div>`).join("");
-        msg.hidden = true;
-      } catch (err) {
-        msg.innerHTML = "Couldn't load approvals (" + escapeHTML(err.message) +
-          "). The FDA API occasionally rate-limits — wait a minute and refresh.";
-      }
-    })();
-
-    // Each record is an "application" with submissions and products inside.
+    // Pull the ORIG + approved submission (the original approval) and its date.
     function parseApp(res) {
       const sub = (res.submissions || []).find(
-        (s) => s.submission_type === "ORIG" && s.submission_status === "AP"
+        (s) => s.submission_type === "ORIG" && s.submission_status === "AP" && s.submission_status_date
       );
-      const product = res.products?.[0];
+      const product = res.products && res.products[0];
       if (!sub || !product) return null;
+      const appNo = res.application_number || "";
       return {
         brand: product.brand_name || "Unnamed product",
-        generic: (res.openfda?.generic_name || [])[0] || "",
+        generic: (res.openfda && res.openfda.generic_name && res.openfda.generic_name[0]) || "",
         sponsor: res.sponsor_name || "Unknown sponsor",
         form: product.dosage_form || "",
-        date: formatDate(sub.submission_status_date),
-        appNo: res.application_number || "",
+        dateRaw: sub.submission_status_date,   // YYYYMMDD
+        appNo: appNo,
+        type: classify(appNo),
       };
     }
 
-    // The API gives dates like "20260114" — make them readable.
-    function formatDate(s) {
-      if (!s || s.length !== 8) return s || "";
-      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      return months[+s.slice(4, 6) - 1] + " " + (+s.slice(6, 8)) + ", " + s.slice(0, 4);
+    function fmtDate(yyyymmdd) {
+      if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd || "";
+      const m = MONTHS[+yyyymmdd.slice(4, 6) - 1].slice(0, 3);
+      return m + " " + (+yyyymmdd.slice(6, 8)) + ", " + yyyymmdd.slice(0, 4);
     }
+
+    async function load() {
+      try {
+        // Only the last ~2 years, original approvals, so the feed is genuinely recent.
+        const thisYear = new Date().getFullYear();
+        const startYear = thisYear - 1;
+        const search = `submissions.submission_type:"ORIG" AND submissions.submission_status:"AP" ` +
+                       `AND submissions.submission_status_date:[${startYear}0101 TO ${thisYear}1231]`;
+        const url = "https://api.fda.gov/drug/drugsfda.json?search=" +
+          encodeURIComponent(search) + "&sort=submissions.submission_status_date:desc&limit=100";
+
+        const r = await fetch(url);
+        if (!r.ok) throw new Error("API returned " + r.status);
+        const d = await r.json();
+
+        const cutoff = "" + startYear + "0101";
+        // Parse, keep only those whose ORIGINAL approval is within our window,
+        // then sort newest-first OURSELVES (don't trust the API's nested sort).
+        const seen = new Set();
+        ALL = (d.results || [])
+          .map(parseApp)
+          .filter((a) => a && a.dateRaw >= cutoff)
+          .filter((a) => { if (seen.has(a.appNo)) return false; seen.add(a.appNo); return true; })
+          .sort((a, b) => b.dateRaw.localeCompare(a.dateRaw));
+
+        if (!ALL.length) throw new Error("No recent approvals returned.");
+        render();
+      } catch (err) {
+        msg.innerHTML = "Couldn't load approvals (" + esc(err.message) +
+          "). The FDA API occasionally rate-limits — wait a minute and refresh.";
+      }
+    }
+
+    function render() {
+      const list = activeType === "all" ? ALL : ALL.filter((a) => a.type.cls === activeType);
+
+      // Update the count on each filter chip.
+      const counts = { all: ALL.length, biologic: 0, brand: 0, generic: 0 };
+      ALL.forEach((a) => { if (counts[a.type.cls] !== undefined) counts[a.type.cls]++; });
+      document.querySelectorAll("#typeFilters [data-type]").forEach((btn) => {
+        const t = btn.dataset.type;
+        const base = { all: "All", biologic: "Biologics", brand: "Brand-name", generic: "Generics" }[t];
+        btn.textContent = base + " (" + (counts[t] || 0) + ")";
+      });
+
+      if (!list.length) {
+        wrap.hidden = false; msg.hidden = true;
+        wrap.innerHTML = '<p class="message">No approvals of this type in the current window.</p>';
+        return;
+      }
+
+      // Group by "YYYYMM" so we can print month headers.
+      const groups = {};
+      for (const a of list) {
+        const key = a.dateRaw.slice(0, 6);
+        (groups[key] = groups[key] || []).push(a);
+      }
+      const keys = Object.keys(groups).sort((x, y) => y.localeCompare(x)); // newest month first
+
+      wrap.innerHTML = keys.map((key) => {
+        const label = MONTHS[+key.slice(4, 6) - 1] + " " + key.slice(0, 4);
+        const rows = groups[key].map((a) => `
+          <div class="appr-row">
+            <span class="appr-type ${a.type.cls}">${a.type.label}</span>
+            <div class="appr-main">
+              <div class="appr-drug">${esc(a.brand)}${a.generic ? ` <span class="appr-generic">(${esc(cut(a.generic, 50))})</span>` : ""}</div>
+              <div class="appr-sub">${esc(cut(a.sponsor, 50))}${a.form ? " · " + esc(cut(a.form, 36)) : ""}</div>
+            </div>
+            <div class="appr-meta">
+              <span class="appr-date">${esc(fmtDate(a.dateRaw))}</span>
+              <span class="appr-app">${esc(a.appNo)}</span>
+            </div>
+          </div>`).join("");
+        return `<section class="appr-group">
+                  <h2 class="appr-month">${esc(label)} <span class="appr-month-n">${groups[key].length}</span></h2>
+                  ${rows}
+                </section>`;
+      }).join("");
+
+      msg.hidden = true;
+      wrap.hidden = false;
+    }
+
+    document.querySelectorAll("#typeFilters [data-type]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#typeFilters [data-type]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeType = btn.dataset.type;
+        if (ALL.length) render();
+      });
+    });
+
+    load();
   </script>
 </body>
 </html>
