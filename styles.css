@@ -568,3 +568,25 @@ footer {
 .job-tag { font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 .job-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .job-tag.job-salary { color: var(--p4); background: rgba(46,125,79,0.10); border-color: rgba(46,125,79,0.35); font-weight: 600; }
+
+/* ============ Homepage hero image banner ============ */
+.hero-banner { width: 100%; background: var(--hero); line-height: 0; }
+.hero-img { display: block; width: 100%; height: auto; max-height: 460px; object-fit: cover; }
+.hero-cta-band { background: var(--hero); padding: 0 0 26px; }
+.hero-cta-band .wrap { padding-top: 0; }
+.hero-sub { color: #c7d2e3; font-size: 16px; line-height: 1.6; max-width: 64ch; margin: 0 0 18px; }
+.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-block; padding: 11px 22px; border-radius: 10px;
+  font-weight: 600; font-size: 14.5px; text-decoration: none;
+  border: 1px solid transparent; transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: var(--p2); color: #fff; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: transparent; color: #eaf0f8; border-color: rgba(255,255,255,0.35); }
+.btn-ghost:hover { background: rgba(255,255,255,0.10); }
+@media (max-width: 640px) {
+  .hero-img { max-height: 300px; }
+  .hero-sub { font-size: 14.5px; }
+}
