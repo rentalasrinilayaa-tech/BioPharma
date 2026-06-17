@@ -18,7 +18,7 @@ function saveTheme(t) {
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const btn = document.querySelector(".theme-toggle");
-  if (btn) btn.textContent = theme === "dark" ? "☀ Light mode" : "☾ Dark mode";
+  if (btn) btn.textContent = theme === "dark" ? "☾ Dark mode: On" : "☾ Dark mode: Off";
 }
 
 // Apply saved theme immediately on page load
