@@ -569,24 +569,27 @@ footer {
 .job-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .job-tag.job-salary { color: var(--p4); background: rgba(46,125,79,0.10); border-color: rgba(46,125,79,0.35); font-weight: 600; }
 
-/* ============ Homepage hero image banner ============ */
-.hero-banner { width: 100%; background: var(--hero); line-height: 0; }
-.hero-img { display: block; width: 100%; height: auto; max-height: 460px; object-fit: cover; }
-.hero-cta-band { background: var(--hero); padding: 0 0 26px; }
-.hero-cta-band .wrap { padding-top: 0; }
-.hero-sub { color: #c7d2e3; font-size: 16px; line-height: 1.6; max-width: 64ch; margin: 0 0 18px; }
-.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
-.btn {
-  display: inline-block; padding: 11px 22px; border-radius: 10px;
-  font-weight: 600; font-size: 14.5px; text-decoration: none;
-  border: 1px solid transparent; transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease;
+/* ============ Homepage hero (text over DNA graphic) ============ */
+.hero2 { position: relative; background: #001029; overflow: hidden; }
+.hero2-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: right center;
 }
-.btn:hover { transform: translateY(-2px); }
-.btn-primary { background: var(--p2); color: #fff; }
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-ghost { background: transparent; color: #eaf0f8; border-color: rgba(255,255,255,0.35); }
-.btn-ghost:hover { background: rgba(255,255,255,0.10); }
-@media (max-width: 640px) {
-  .hero-img { max-height: 300px; }
-  .hero-sub { font-size: 14.5px; }
+.hero2-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    #001029 0%, #001029 46%, rgba(0,16,41,0.55) 64%, rgba(0,16,41,0) 82%);
+}
+.hero2-inner { position: relative; padding-top: 52px; padding-bottom: 52px; }
+.hero2-title {
+  color: #fff; font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 38px; line-height: 1.12; font-weight: 800; margin: 0;
+}
+.hero2-rule { width: 52px; height: 4px; background: var(--p2); border-radius: 2px; margin: 16px 0; }
+.hero2-sub { color: #c7d2e3; font-size: 15.5px; line-height: 1.6; max-width: 52ch; margin: 0; }
+@media (max-width: 760px) {
+  .hero2-overlay { background: linear-gradient(180deg, rgba(0,16,41,0.45) 0%, #001029 72%); }
+  .hero2-title { font-size: 27px; }
+  .hero2-sub { font-size: 14px; }
+  .hero2-inner { padding-top: 40px; padding-bottom: 40px; }
 }
