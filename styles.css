@@ -593,3 +593,23 @@ footer {
   .hero2-sub { font-size: 14px; }
   .hero2-inner { padding-top: 40px; padding-bottom: 40px; }
 }
+
+/* ============ Companies & Deals ============ */
+.co-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.co-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.co-name { font-weight: 700; font-size: 15.5px; font-family: "Bricolage Grotesque", sans-serif; }
+.co-type { flex: none; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+.co-type.bigpharma { background: rgba(71,86,196,0.13); color: var(--p3); border-color: rgba(71,86,196,0.4); }
+.co-type.biotech   { background: rgba(31,138,140,0.13); color: var(--p2); border-color: rgba(31,138,140,0.4); }
+.co-type.emerging  { background: rgba(217,122,43,0.13); color: var(--p1); border-color: rgba(217,122,43,0.4); }
+.co-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.co-blurb { font-size: 13px; line-height: 1.5; margin: 10px 0; flex: 1; }
+.co-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.co-tag { font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.co-link { font-size: 13px; font-weight: 600; color: var(--p2); text-decoration: none; }
+.co-link:hover { text-decoration: underline; }
+
+.news-item { display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 9px; text-decoration: none; color: var(--ink); background: var(--surface); transition: transform 0.1s ease, box-shadow 0.1s ease; }
+.news-item:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,22,38,0.07); }
+.news-title { font-weight: 500; font-size: 14px; line-height: 1.4; }
+.news-src { color: var(--muted); font-size: 12px; margin-top: 4px; }

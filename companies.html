@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Companies &amp; Deals — BioPharma Updates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <button class="theme-toggle">☾ Dark mode</button>
+    <a class="brand" href="index.html">BioPharma Updates<span class="dot">.</span></a>
+    <nav class="menu">
+      <a href="index.html">Home</a>
+      <a href="companies.html">Companies &amp; Deals</a>
+      <a href="pipeline.html">Pipeline Tracker</a>
+      <a href="drugs.html">Drug Explorer</a>
+      <a href="approvals.html">FDA Approvals</a>
+      <a href="news.html">News &amp; Events</a>
+      <a href="jobs.html">Open Jobs</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <div class="hero">
+      <h1>Companies &amp; deals</h1>
+      <p>Profiles of major biotech &amp; pharma players, plus a live feed of funding, M&amp;A,
+         licensing and partnership news across the industry.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ============ COMPANY PROFILES ============ -->
+    <h2 class="section-title">Company profiles</h2>
+    <p style="color:var(--muted);font-size:13.5px;margin:-4px 0 14px;max-width:72ch">
+      A curated set of notable companies. Each links to its live clinical-trial pipeline.
+    </p>
+    <div class="event-filters" id="coFilters">
+      <button class="topic-chip active" data-type="all">All</button>
+      <button class="topic-chip" data-type="Big Pharma">Big Pharma</button>
+      <button class="topic-chip" data-type="Biotech">Biotech</button>
+      <button class="topic-chip" data-type="Emerging">Emerging</button>
+    </div>
+    <div class="grid cols-3" id="coGrid" style="margin-top:14px"></div>
+
+    <!-- ============ DEALS & PARTNERSHIPS ============ -->
+    <h2 class="section-title" style="margin-top:36px">Deals &amp; partnerships</h2>
+    <p style="color:var(--muted);font-size:13.5px;margin:-4px 0 14px;max-width:72ch">
+      Live headlines about funding, acquisitions, licensing and collaborations. Pick a category.
+    </p>
+    <div class="event-filters" id="dealFilters"></div>
+    <div id="dealMsg" class="message"><div class="spinner"></div>Loading deal news…</div>
+    <div id="dealList"></div>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Company profiles are curated general information. Deal headlines come from Google News and
+      reflect press coverage, not verified deal terms. Not investment advice.
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const esc = (typeof escapeHTML === "function") ? escapeHTML : (s) =>
+      String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const cut = (typeof shorten === "function") ? shorten : (s, n) => { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+    const WORKER_URL = "https://biopharma-proxy.nilayaarentala.workers.dev";
+
+    /* ---------------- Company profiles (curated — edit freely) ---------------- */
+    const COMPANIES = [
+      { name: "Eli Lilly", type: "Big Pharma", hq: "Indianapolis, USA", founded: 1876, focus: ["Diabetes", "Obesity", "Neuroscience"], blurb: "Maker of major diabetes and obesity therapies; one of the most valuable pharma companies." },
+      { name: "Novo Nordisk", type: "Big Pharma", hq: "Bagsværd, Denmark", founded: 1923, focus: ["Diabetes", "Obesity"], blurb: "Global leader in diabetes care and GLP-1 obesity treatments." },
+      { name: "Pfizer", type: "Big Pharma", hq: "New York, USA", founded: 1849, focus: ["Vaccines", "Oncology", "Immunology"], blurb: "One of the world's largest research-based pharmaceutical companies." },
+      { name: "Johnson & Johnson", type: "Big Pharma", hq: "New Brunswick, USA", founded: 1886, focus: ["Immunology", "Oncology", "MedTech"], blurb: "Diversified healthcare group spanning pharmaceuticals and medical technology." },
+      { name: "Merck & Co.", type: "Big Pharma", hq: "Rahway, USA", founded: 1891, focus: ["Oncology", "Vaccines"], blurb: "Known for immuno-oncology and a broad vaccine portfolio." },
+      { name: "AstraZeneca", type: "Big Pharma", hq: "Cambridge, UK", founded: 1999, focus: ["Oncology", "Cardiovascular", "Respiratory"], blurb: "Anglo-Swedish pharma with a heavy oncology and rare-disease pipeline." },
+      { name: "Roche", type: "Big Pharma", hq: "Basel, Switzerland", founded: 1896, focus: ["Oncology", "Diagnostics"], blurb: "Leader in cancer therapeutics and in-vitro diagnostics." },
+      { name: "Novartis", type: "Big Pharma", hq: "Basel, Switzerland", founded: 1996, focus: ["Oncology", "Cardiovascular", "Gene therapy"], blurb: "Swiss pharma investing heavily in cell and gene therapies." },
+      { name: "Moderna", type: "Biotech", hq: "Cambridge, MA, USA", founded: 2010, focus: ["mRNA vaccines", "Therapeutics"], blurb: "Pioneer of mRNA technology beyond vaccines into oncology and rare disease." },
+      { name: "Vertex Pharmaceuticals", type: "Biotech", hq: "Boston, MA, USA", founded: 1989, focus: ["Cystic fibrosis", "Gene editing"], blurb: "Dominates cystic-fibrosis treatment; expanding into gene-edited therapies." },
+      { name: "Regeneron", type: "Biotech", hq: "Tarrytown, NY, USA", founded: 1988, focus: ["Antibodies", "Ophthalmology", "Immunology"], blurb: "Antibody specialist with major eye-disease and immunology franchises." },
+      { name: "BioNTech", type: "Biotech", hq: "Mainz, Germany", founded: 2008, focus: ["mRNA", "Oncology"], blurb: "mRNA company applying its platform to individualized cancer therapy." },
+      { name: "Amgen", type: "Biotech", hq: "Thousand Oaks, CA, USA", founded: 1980, focus: ["Biologics", "Oncology", "Inflammation"], blurb: "One of the original biotech firms, focused on biologic medicines." },
+      { name: "Gilead Sciences", type: "Biotech", hq: "Foster City, CA, USA", founded: 1987, focus: ["Antivirals", "Oncology"], blurb: "Known for HIV and hepatitis antivirals, growing in oncology." },
+      { name: "CRISPR Therapeutics", type: "Emerging", hq: "Zug, Switzerland", founded: 2013, focus: ["Gene editing"], blurb: "Develops CRISPR/Cas9-based therapies, including approved gene-edited treatment." },
+      { name: "Beam Therapeutics", type: "Emerging", hq: "Cambridge, MA, USA", founded: 2017, focus: ["Base editing"], blurb: "Next-generation gene-editing startup pioneering precise base editing." },
+    ];
+
+    let coType = "all";
+    const coGrid = document.getElementById("coGrid");
+
+    function pipelineLink(name) {
+      return "pipeline.html?q=" + encodeURIComponent(name) + "&type=spons";
+    }
+    function renderCompanies() {
+      const list = coType === "all" ? COMPANIES : COMPANIES.filter((c) => c.type === coType);
+      coGrid.innerHTML = list.map((c) => {
+        const tags = c.focus.map((f) => `<span class="co-tag">${esc(f)}</span>`).join("");
+        const cls = c.type === "Big Pharma" ? "bigpharma" : (c.type === "Biotech" ? "biotech" : "emerging");
+        return `
+          <div class="co-card">
+            <div class="co-head">
+              <span class="co-name">${esc(c.name)}</span>
+              <span class="co-type ${cls}">${esc(c.type)}</span>
+            </div>
+            <div class="co-meta">${esc(c.hq)} · est. ${c.founded}</div>
+            <p class="co-blurb">${esc(c.blurb)}</p>
+            <div class="co-tags">${tags}</div>
+            <a class="co-link" href="${pipelineLink(c.name)}">View pipeline →</a>
+          </div>`;
+      }).join("");
+    }
+    document.querySelectorAll("#coFilters [data-type]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#coFilters [data-type]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        coType = btn.dataset.type;
+        renderCompanies();
+      });
+    });
+    renderCompanies();
+
+    /* ---------------- Deals & partnerships (live Google News) ---------------- */
+    const DEAL_CATS = [
+      { label: "Funding rounds", q: 'biotech (funding OR "Series A" OR "Series B" OR raises OR financing)' },
+      { label: "M&A / Acquisitions", q: 'pharma OR biotech (acquisition OR acquires OR merger OR "to buy")' },
+      { label: "Partnerships & Licensing", q: 'pharma OR biotech (licensing OR partnership OR collaboration OR "co-development")' },
+      { label: "Leadership changes", q: 'biotech OR pharma (CEO OR "chief executive" OR "appoints" OR "steps down")' },
+      { label: "Layoffs & hiring", q: 'biotech OR pharma (layoffs OR "job cuts" OR restructuring OR hiring)' },
+    ];
+    let dealCat = 0;
+    const dealMsg = document.getElementById("dealMsg");
+    const dealList = document.getElementById("dealList");
+    const dealFilters = document.getElementById("dealFilters");
+
+    dealFilters.innerHTML = DEAL_CATS.map((c, i) =>
+      `<button class="topic-chip ${i === 0 ? "active" : ""}" data-i="${i}">${esc(c.label)}</button>`).join("");
+    dealFilters.querySelectorAll("[data-i]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        dealFilters.querySelectorAll("[data-i]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        dealCat = +btn.dataset.i;
+        loadDeals();
+      });
+    });
+
+    async function fetchTextViaProxies(targetUrl, mustContain) {
+      const tries = [];
+      if (WORKER_URL.indexOf("workers.dev") !== -1) tries.push(WORKER_URL + "?url=" + encodeURIComponent(targetUrl));
+      tries.push("https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl));
+      tries.push("https://corsproxy.io/?url=" + encodeURIComponent(targetUrl));
+      for (const u of tries) {
+        try {
+          const r = await fetch(u);
+          if (!r.ok) continue;
+          const t = await r.text();
+          if (t && (!mustContain || t.indexOf(mustContain) !== -1)) return t;
+        } catch (e) { /* next */ }
+      }
+      throw new Error("all proxies failed");
+    }
+
+    function parseRSS(xml) {
+      const doc = new DOMParser().parseFromString(xml, "text/xml");
+      return Array.from(doc.querySelectorAll("item")).map((it) => {
+        const get = (t) => { const el = it.querySelector(t); return el ? el.textContent : ""; };
+        let title = get("title");
+        let source = "";
+        const srcEl = it.querySelector("source");
+        if (srcEl) source = srcEl.textContent;
+        // Google News titles end with " - Source"; trim that for cleanliness.
+        if (!source && title.lastIndexOf(" - ") !== -1) {
+          source = title.slice(title.lastIndexOf(" - ") + 3);
+          title = title.slice(0, title.lastIndexOf(" - "));
+        }
+        return { title, link: get("link"), date: get("pubDate"), source };
+      });
+    }
+
+    function fmtDate(s) {
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return "";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return months[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+    }
+
+    async function loadDeals() {
+      dealMsg.hidden = false;
+      dealMsg.innerHTML = '<div class="spinner"></div>Loading deal news…';
+      dealList.innerHTML = "";
+      try {
+        const q = DEAL_CATS[dealCat].q;
+        const rss = "https://news.google.com/rss/search?q=" + encodeURIComponent(q) +
+                    "&hl=en-US&gl=US&ceid=US:en";
+        const xml = await fetchTextViaProxies(rss, "<item>");
+        const items = parseRSS(xml).slice(0, 24);
+        if (!items.length) throw new Error("no headlines");
+        dealList.innerHTML = items.map((it) => `
+          <a class="news-item" href="${esc(it.link)}" target="_blank" rel="noopener">
+            <div class="news-title">${esc(cut(it.title, 130))}</div>
+            <div class="news-src">${esc(it.source || "News")}${it.date ? " · " + esc(fmtDate(it.date)) : ""}</div>
+          </a>`).join("");
+        dealMsg.hidden = true;
+      } catch (err) {
+        dealMsg.hidden = false;
+        dealMsg.innerHTML = "Couldn't load deal news right now (" + esc(err.message) +
+          "). Try another category or refresh in a moment.";
+      }
+    }
+    loadDeals();
+  </script>
+</body>
+</html>
