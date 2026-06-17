@@ -615,12 +615,12 @@ footer {
 .news-src { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
 /* ============ Homepage phase pie/donut ============ */
-.pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.pie-svg { width: 168px; height: 168px; flex: none; }
-.pie-c-n { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 26px; fill: var(--ink); }
+.pie-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.pie-svg { width: 150px; height: 150px; flex: none; }
+.pie-c-n { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 23px; fill: var(--ink); }
 .pie-c-l { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.pie-legend { display: flex; flex-direction: column; gap: 9px; min-width: 150px; }
-.pie-lg { font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
+.pie-legend { display: flex; flex-direction: column; gap: 8px; min-width: 150px; }
+.pie-lg { font-size: 12.5px; color: var(--ink); display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .pie-lg b { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
 .pie-pct { color: var(--muted); font-size: 12px; margin-left: auto; }
 .pie-learn { display: inline-block; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--p2); text-decoration: none; }
@@ -643,4 +643,18 @@ footer {
 @media (max-width: 380px) {
   .brand { font-size: 20px; }
   nav.menu a { font-size: 12px; padding: 6px 8px 9px; }
+}
+
+/* ============ Footer shown as a disclaimer ============ */
+footer .wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  line-height: 1.55;
+}
+footer .wrap::before {
+  content: "Disclaimer: ";
+  font-weight: 700;
+  color: var(--ink);
 }

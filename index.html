@@ -199,7 +199,7 @@
           return `<span class="pie-lg"><i class="lg-dot" style="background:var(--${p.cls})"></i>${p.label} <b>${c.toLocaleString()}</b> <span class="pie-pct">${pct}%</span></span>`;
         }).join("");
         el.innerHTML = `<div class="pie-wrap">
-            <svg viewBox="0 0 180 180" class="pie-svg" role="img" aria-label="Clinical trials by phase">
+            <svg viewBox="0 0 180 180" width="150" height="150" class="pie-svg" role="img" aria-label="Clinical trials by phase">
               ${slices}
               <circle cx="${cx}" cy="${cy}" r="${ir}" fill="var(--surface)"></circle>
               <text x="90" y="85" text-anchor="middle" class="pie-c-n">${total.toLocaleString()}</text>
