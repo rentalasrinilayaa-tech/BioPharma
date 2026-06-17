@@ -99,6 +99,7 @@ nav.menu a.active { color: var(--hero-ink); border-bottom-color: var(--p2); }
 
 /* ---------- Generic content blocks ---------- */
 main { padding: 40px 0 60px; }
+main.wrap { padding-top: 40px; padding-bottom: 60px; }
 .section-title { font-size: 20px; margin: 26px 0 12px; }
 
 .panel {
@@ -637,7 +638,7 @@ footer {
   .hero { padding: 22px 16px 28px; }
   .hero h1 { font-size: 22px; }
   .hero p { font-size: 14px; }
-  main { padding-top: 30px; }
+  main.wrap { padding-top: 26px; }
   .section-title { font-size: 18px; }
 }
 @media (max-width: 380px) {
