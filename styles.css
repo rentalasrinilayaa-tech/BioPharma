@@ -98,7 +98,7 @@ nav.menu a.active { color: var(--hero-ink); border-bottom-color: var(--p2); }
 .hero p { color: var(--hero-muted); max-width: 62ch; margin: 8px auto 0; }
 
 /* ---------- Generic content blocks ---------- */
-main { padding: 28px 0 60px; }
+main { padding: 40px 0 60px; }
 .section-title { font-size: 20px; margin: 26px 0 12px; }
 
 .panel {
@@ -613,3 +613,34 @@ footer {
 .news-item:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,22,38,0.07); }
 .news-title { font-weight: 500; font-size: 14px; line-height: 1.4; }
 .news-src { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* ============ Homepage phase pie/donut ============ */
+.pie-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.pie-svg { width: 168px; height: 168px; flex: none; }
+.pie-c-n { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 26px; fill: var(--ink); }
+.pie-c-l { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.pie-legend { display: flex; flex-direction: column; gap: 9px; min-width: 150px; }
+.pie-lg { font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
+.pie-lg b { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+.pie-pct { color: var(--muted); font-size: 12px; margin-left: auto; }
+.pie-learn { display: inline-block; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--p2); text-decoration: none; }
+.pie-learn:hover { text-decoration: underline; }
+@media (max-width: 420px) { .pie-wrap { justify-content: center; } .pie-legend { min-width: 0; width: 100%; } }
+
+/* responsive header fixes */
+@media (max-width: 680px) {
+  .topbar { padding-top: 48px; }
+  .brand { font-size: 22px; }
+  .theme-toggle { top: 12px; right: 12px; padding: 4px 10px; font-size: 11px; }
+  nav.menu { gap: 1px; padding: 10px 6px 0; }
+  nav.menu a { font-size: 12.5px; padding: 6px 10px 9px; }
+  .hero { padding: 22px 16px 28px; }
+  .hero h1 { font-size: 22px; }
+  .hero p { font-size: 14px; }
+  main { padding-top: 30px; }
+  .section-title { font-size: 18px; }
+}
+@media (max-width: 380px) {
+  .brand { font-size: 20px; }
+  nav.menu a { font-size: 12px; padding: 6px 8px 9px; }
+}
