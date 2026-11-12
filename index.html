@@ -3,8 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BioPharma Updates — Trials, Stocks & Drug Intelligence</title>
-  <meta name="description" content="Free dashboards for clinical trial pipelines, pharma stocks, FDA approvals, drug safety and jobs." />
+  <title>BioPharma Updates — Clinical Trials, FDA Approvals & Drug Intelligence</title>
+  <meta name="description" content="A free, live dashboard of the biotech & pharma world: clinical-trial pipelines, FDA approvals, drug safety data, company deals, and jobs — all from open public data." />
+
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+
+  <!-- Open Graph (LinkedIn / Facebook link preview) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="BioPharma Updates" />
+  <meta property="og:title" content="BioPharma Updates — the biotech & pharma world, made readable" />
+  <meta property="og:description" content="Live clinical-trial pipelines, FDA approvals, drug safety data, company deals, and jobs — all from open public data." />
+  <meta property="og:image" content="https://rentalasrinilayaa-tech.github.io/BioPharma/hero.jpg" />
+  <meta property="og:url" content="https://rentalasrinilayaa-tech.github.io/BioPharma/" />
+
+  <!-- Twitter / X card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="BioPharma Updates — the biotech & pharma world, made readable" />
+  <meta name="twitter:description" content="Live clinical-trial pipelines, FDA approvals, drug safety, deals, and jobs — from open public data." />
+  <meta name="twitter:image" content="https://rentalasrinilayaa-tech.github.io/BioPharma/hero.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -114,21 +133,33 @@
       </div>
     </div>
 
-    <!-- TRUST STRIP -->
-    <h2 class="section-title" style="margin-top:34px">Built on data you can trust</h2>
-    <div class="trust">
-      <div class="trust-item">
-        <span class="trust-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span>
-        <div><div class="trust-t">Open public data</div><div class="trust-d">ClinicalTrials.gov · openFDA · USPTO · Adzuna</div></div>
-      </div>
-      <div class="trust-item">
-        <span class="trust-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></span>
-        <div><div class="trust-t">Free &amp; ad-free</div><div class="trust-d">No login, no ads, no paywalls</div></div>
-      </div>
-      <div class="trust-item">
-        <span class="trust-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
-        <div><div class="trust-t">Information only</div><div class="trust-d">Not medical or investment advice</div></div>
-      </div>
+    <!-- LATEST FDA APPROVALS PREVIEW -->
+    <div class="sec-head" style="margin-top:34px">
+      <h2 class="section-title" style="margin:0">Latest FDA approvals</h2>
+      <a class="sec-link" href="approvals.html">See all →</a>
+    </div>
+    <p style="color:var(--muted);font-size:13.5px;margin:4px 0 14px;max-width:70ch">
+      The newest drug approvals on record at the US FDA, pulled live from the Drugs@FDA database.
+    </p>
+    <div id="apprPreview" class="grid cols-2"><div class="message"><div class="spinner"></div>Loading…</div></div>
+
+    <!-- ABOUT -->
+    <h2 class="section-title" style="margin-top:34px">About this project</h2>
+    <div class="about-card">
+      <p>
+        <strong>BioPharma Updates</strong> is a free, independent dashboard that makes the biotech &amp;
+        pharma world easier to follow — clinical-trial pipelines, FDA approvals, drug-safety signals,
+        company deals, and open jobs, all in one place and all in plain language.
+      </p>
+      <p>
+        I built it as a hands-on project to turn scattered public datasets into something anyone can
+        read and explore. Every number on the site is pulled live from open government and public
+        data — <strong>ClinicalTrials.gov</strong>, the FDA's <strong>openFDA</strong>, the
+        <strong>USPTO</strong>, and public job and news feeds — with no logins, no ads, and nothing behind a paywall.
+      </p>
+      <p class="about-note">
+        For general information only — not medical or investment advice.
+      </p>
     </div>
   </main>
 
@@ -168,8 +199,12 @@
           encodeURIComponent(`submissions.submission_status:"AP" AND submissions.submission_status_date:[${year}0101 TO ${year}1231]`) + "&limit=1";
         const r = await fetch(url); const d = await r.json();
         const total = d.meta && d.meta.results && d.meta.results.total;
-        document.getElementById("statApprovals").textContent = total ? total.toLocaleString() : "—";
-      } catch (e) { document.getElementById("statApprovals").textContent = "—"; }
+        if (total) { document.getElementById("statApprovals").textContent = total.toLocaleString(); }
+        else { const c = document.getElementById("statApprovals").closest(".stat"); if (c) c.style.display = "none"; }
+      } catch (e) {
+        const card = document.getElementById("statApprovals").closest(".stat");
+        if (card) card.style.display = "none";
+      }
     })();
 
     (async () => {
@@ -228,6 +263,37 @@
           return `<a class="mom-row" href="${href}" title="Explore ${esc(a.name)} trials"><span class="mom-name">${esc(a.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span><span class="mom-n">${a.n.toLocaleString()}</span></a>`;
         }).join("");
       } catch (e) { el.innerHTML = '<p class="message" style="padding:20px">Couldn\u2019t load activity data — refresh in a moment.</p>'; }
+    })();
+
+    /* ---------- Latest FDA approvals preview ---------- */
+    (async () => {
+      const el = document.getElementById("apprPreview");
+      function classify(appNo){ if(/^BLA/i.test(appNo))return{l:"Biologic",c:"biologic"}; if(/^ANDA/i.test(appNo))return{l:"Generic",c:"generic"}; if(/^NDA/i.test(appNo))return{l:"Brand-name",c:"brand"}; return{l:"Other",c:"other"}; }
+      function fmt(d){ if(!d||d.length!==8)return""; const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return M[+d.slice(4,6)-1]+" "+(+d.slice(6,8))+", "+d.slice(0,4); }
+      try {
+        const yr = new Date().getFullYear(), start = yr - 1;
+        const search = `submissions.submission_type:"ORIG" AND submissions.submission_status:"AP" AND submissions.submission_status_date:[${start}0101 TO ${yr}1231]`;
+        const url = "https://api.fda.gov/drug/drugsfda.json?search=" + encodeURIComponent(search) + "&sort=submissions.submission_status_date:desc&limit=30";
+        const r = await fetch(url); if (!r.ok) throw new Error("http"); const d = await r.json();
+        const seen = new Set(); const items = [];
+        for (const res of (d.results || [])) {
+          const sub = (res.submissions||[]).find(x=>x.submission_type==="ORIG"&&x.submission_status==="AP"&&x.submission_status_date);
+          const prod = res.products && res.products[0];
+          if (!sub || !prod) continue;
+          const appNo = res.application_number || ""; if (seen.has(appNo)) continue; seen.add(appNo);
+          items.push({ brand: prod.brand_name || "Unnamed", sponsor: res.sponsor_name || "", date: sub.submission_status_date, t: classify(appNo) });
+          if (items.length === 4) break;
+        }
+        if (!items.length) throw new Error("none");
+        el.innerHTML = items.map((a) => `
+          <a class="appr-prev" href="approvals.html">
+            <div class="appr-prev-top"><span class="appr-prev-name">${esc(a.brand)}</span><span class="appr-type ${a.t.c}">${a.t.l}</span></div>
+            <div class="appr-prev-meta">${esc(a.sponsor)}</div>
+            <div class="appr-prev-date">Approved ${esc(fmt(a.date))}</div>
+          </a>`).join("");
+      } catch (e) {
+        el.innerHTML = '<p class="message">Couldn\u2019t load recent approvals right now. <a href="approvals.html">Open the Approvals page →</a></p>';
+      }
     })();
   </script>
 </body>
