@@ -660,3 +660,23 @@ footer .wrap::before {
   font-weight: 700;
   color: var(--ink);
 }
+/* ============ Homepage: section header, FDA preview, About ============ */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sec-link { font-size: 13.5px; font-weight: 600; color: var(--p2); text-decoration: none; white-space: nowrap; }
+.sec-link:hover { text-decoration: underline; }
+
+.appr-prev {
+  display: block; background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--p2); border-radius: 10px; padding: 14px 16px;
+  text-decoration: none; color: var(--ink); transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.appr-prev:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(14,22,38,0.08); }
+.appr-prev-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.appr-prev-name { font-weight: 600; font-size: 14px; }
+.appr-prev-meta { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.appr-prev-date { color: var(--p4); font-size: 12px; font-weight: 600; margin-top: 6px; }
+
+.about-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; }
+.about-card p { font-size: 14.5px; line-height: 1.65; margin: 0 0 12px; max-width: 75ch; }
+.about-card p:last-child { margin-bottom: 0; }
+.about-note { color: var(--muted); font-size: 12.5px !important; }
